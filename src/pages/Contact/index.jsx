@@ -1,6 +1,6 @@
 // src/pages/Contact.js
 import React from 'react'
-import { Container, Typography, Box, Link } from '@mui/material'
+import { Typography, Box, Link } from '@mui/material'
 
 const Contact = () => {
   return (

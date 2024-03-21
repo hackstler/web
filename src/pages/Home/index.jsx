@@ -1,10 +1,10 @@
 // src/pages/Home.js
 import React from 'react'
-import { Box, Typography, Button, Container, IconButton } from '@mui/material'
-import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder'
-import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos'
-import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew'
-import SearchIcon from '@mui/icons-material/Search'
+import { Box, Typography, Container } from '@mui/material'
+// import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder'
+// import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos'
+// import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew'
+// import SearchIcon from '@mui/icons-material/Search'
 import WelcomeText from '../../components/Animations/WelcomeText'
 
 const Home = () => {
