@@ -15,6 +15,7 @@ const theme = createTheme({
       styleOverrides: {
         body: {
           backgroundImage: `url(${backgroundImage})`,
+          backgroundPosition: 'center',
           backgroundAttachment: 'fixed' // This will make the background fixed during scroll
         }
       }
