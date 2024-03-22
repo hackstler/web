@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Box } from '@mui/material'
+import PropTypes from 'prop-types'
 
 const useTypewriterEffect = (text, speed, delay) => {
   const [displayedText, setDisplayedText] = useState('')
@@ -40,8 +41,12 @@ const useTypewriterEffect = (text, speed, delay) => {
 
   return displayedText
 }
-
-const WelcomeText = ({ text, speed, delay }) => {
+WelcomeText.propTypes = {
+  text: PropTypes.string.isRequired, // Define 'text' como un string requerido
+  speed: PropTypes.number, // Define 'speed' como un número (no requerido)
+  delay: PropTypes.number // Define 'delay' como un número (no requerido)
+}
+const WelcomeText = ({ text = 'default', speed = 150, delay = 2000 }) => {
   const animatedText = useTypewriterEffect(text, speed, delay)
 
   return (
