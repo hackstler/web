@@ -33,7 +33,7 @@
   <circle cx="300" cy="315" r="300" fill="rgba(59,130,246,0.05)"/>
   <circle cx="900" cy="315" r="250" fill="rgba(139,92,246,0.04)"/>
   <!-- Logo -->
-  <g transform="translate(540, 160)">
+  <g transform="translate(568, 160)">
     <rect width="64" height="64" rx="14" fill="#09090b" stroke="url(#logo-grad)" stroke-width="2" opacity="0.6"/>
     <text x="32" y="44" text-anchor="middle" font-family="SF Mono, ui-monospace, monospace" font-weight="700" font-size="32" fill="url(#logo-grad)">H</text>
   </g>
