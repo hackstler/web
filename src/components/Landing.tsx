@@ -350,9 +350,9 @@ export function Landing() {
               className="btn-press group relative font-mono text-sm font-semibold tracking-wider px-8 py-3.5 rounded-[var(--radius-lg)] bg-accent text-white hover:bg-accent-hover shadow-[var(--shadow-glow-accent)] hover:shadow-[0_0_50px_rgba(59,130,246,0.5)] transition-all duration-300 overflow-hidden"
             >
               <span className="relative z-10">EXPLORE <span className="inline-block transition-transform duration-300 group-hover:translate-x-1">&rarr;</span></span>
-              {/* Shimmer effect on button */}
-              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent" style={{ animation: 'line-glow 2s ease-in-out infinite' }} />
+              {/* Shimmer — always alive, intensifies on hover */}
+              <div className="absolute inset-0 overflow-hidden rounded-[inherit]">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.07] to-transparent" style={{ animation: 'btn-shimmer 4s ease-in-out infinite' }} />
               </div>
             </a>
             <a

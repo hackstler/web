@@ -122,6 +122,13 @@
   100% { left: 140%; opacity: 0; }
 }
 
+@keyframes btn-shimmer {
+  0%, 100% { transform: translateX(-100%); opacity: 0; }
+  10%      { opacity: 1; }
+  40%      { transform: translateX(100%); opacity: 0; }
+  41%, 99% { transform: translateX(-100%); opacity: 0; }
+}
+
 /* ── Utility classes ─────────────────────────────────────── */
 
 .animate-fade-in-up {
