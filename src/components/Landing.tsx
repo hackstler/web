@@ -115,17 +115,50 @@ export function Landing() {
   return (
     <div className="relative overflow-hidden">
 
-      {/* ── Ambient orbs ──────────────────────────────────── */}
+      {/* ── Ambient orbs (hero-only, stronger) ────────────── */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
-        <div className="absolute top-[15%] left-[20%] w-[600px] h-[600px] bg-accent/[0.04] rounded-full blur-[180px]" style={{ animation: 'glow-pulse 6s ease-in-out infinite' }} />
-        <div className="absolute bottom-[20%] right-[15%] w-[500px] h-[500px] bg-brand/[0.03] rounded-full blur-[150px]" style={{ animation: 'glow-pulse 8s ease-in-out infinite 2s' }} />
-        <div className="absolute top-[60%] left-[50%] w-[400px] h-[400px] bg-brand-accent/[0.02] rounded-full blur-[120px]" style={{ animation: 'glow-pulse 7s ease-in-out infinite 4s' }} />
+        <div className="absolute top-[10%] left-[15%] w-[700px] h-[700px] bg-accent/[0.06] rounded-full blur-[200px]" style={{ animation: 'orb-drift 12s ease-in-out infinite, glow-pulse 6s ease-in-out infinite' }} />
+        <div className="absolute bottom-[10%] right-[10%] w-[600px] h-[600px] bg-brand/[0.05] rounded-full blur-[180px]" style={{ animation: 'orb-drift 15s ease-in-out infinite reverse, glow-pulse 8s ease-in-out infinite 2s' }} />
+        <div className="absolute top-[50%] left-[50%] -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-brand-accent/[0.03] rounded-full blur-[150px]" style={{ animation: 'orb-drift 10s ease-in-out infinite 3s, glow-pulse 7s ease-in-out infinite 4s' }} />
       </div>
 
       {/* ══════════════════════════════════════════════════════ */}
       {/* HERO                                                  */}
       {/* ══════════════════════════════════════════════════════ */}
-      <header className="relative min-h-screen flex flex-col justify-center items-center px-6 text-center">
+      <header className="relative min-h-screen flex flex-col justify-center items-center px-6 text-center overflow-hidden">
+        {/* Grid background */}
+        <div className="hero-grid absolute inset-0 pointer-events-none" />
+
+        {/* Scan line */}
+        <div className="hero-scan absolute inset-0 pointer-events-none overflow-hidden" />
+
+        {/* Radial vignette */}
+        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,transparent_0%,#09090b_70%)]" />
+
+        {/* Floating decorative elements */}
+        <div className="absolute top-[20%] left-[8%] hidden md:block pointer-events-none animate-fade-in-up stagger-6">
+          <div className="font-mono text-[10px] text-text-dim/40 leading-relaxed" style={{ animation: 'float 6s ease-in-out infinite' }}>
+            <div>{'{'} agents: 6,</div>
+            <div>&nbsp;&nbsp;tools: 14,</div>
+            <div>&nbsp;&nbsp;plugins: 4 {'}'}</div>
+          </div>
+        </div>
+        <div className="absolute bottom-[25%] right-[8%] hidden md:block pointer-events-none animate-fade-in-up stagger-7">
+          <div className="font-mono text-[10px] text-text-dim/40 leading-relaxed" style={{ animation: 'float 7s ease-in-out infinite 1s' }}>
+            <div>status: <span className="text-green/40">online</span></div>
+            <div>latency: 12ms</div>
+            <div>uptime: 99.97%</div>
+          </div>
+        </div>
+
+        {/* Side accent lines */}
+        <div className="absolute left-0 top-[30%] h-[40%] w-px hidden lg:block pointer-events-none">
+          <div className="h-full w-full bg-gradient-to-b from-transparent via-accent/20 to-transparent" />
+        </div>
+        <div className="absolute right-0 top-[25%] h-[50%] w-px hidden lg:block pointer-events-none">
+          <div className="h-full w-full bg-gradient-to-b from-transparent via-brand/20 to-transparent" />
+        </div>
+
         {/* Gradient bar top */}
         <div className="gradient-bar h-[2px] fixed top-0 left-0 right-0 z-50" />
 
@@ -146,45 +179,63 @@ export function Landing() {
         </nav>
 
         {/* Hero content */}
-        <div className="max-w-4xl mx-auto">
-          {/* Terminal typing */}
-          <div className="animate-fade-in-up stagger-1 mb-6">
-            <span className="font-mono text-sm text-text-muted">
+        <div className="max-w-4xl mx-auto relative z-10">
+          {/* Terminal prompt line */}
+          <div className="animate-fade-in-up stagger-1 mb-4">
+            <span className="inline-flex items-center gap-2 font-mono text-xs sm:text-sm px-4 py-2 rounded-full border border-border bg-surface/40 backdrop-blur-sm text-text-muted">
+              <span className="w-2 h-2 rounded-full bg-green shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
               <span className="text-accent">$</span> whoami <span className="text-brand">--verbose</span>
             </span>
           </div>
 
-          {/* Main title */}
-          <h1 className="animate-fade-in-up stagger-2 font-mono text-5xl sm:text-7xl md:text-8xl font-bold tracking-tighter mb-2">
+          {/* Main title with glitch */}
+          <h1
+            className="animate-fade-in-up stagger-2 font-mono text-5xl sm:text-7xl md:text-[8rem] font-bold tracking-tighter mb-2 glitch-text"
+            data-text="hackstler"
+          >
             <span className="gradient-text">{displayed}</span>
             <span
-              className="inline-block w-[3px] h-[0.8em] bg-accent ml-1 align-middle"
+              className="inline-block w-[4px] h-[0.75em] bg-accent ml-1 align-middle shadow-[0_0_12px_rgba(59,130,246,0.6)]"
               style={{ animation: done ? 'typing-cursor 1s step-end infinite' : 'none' }}
             />
           </h1>
 
+          {/* Decorative line under title */}
+          <div className="animate-fade-in-up stagger-3 flex items-center justify-center gap-3 my-6">
+            <div className="h-px w-12 sm:w-20 bg-gradient-to-r from-transparent to-accent/40" />
+            <span className="font-mono text-[10px] text-accent/60 tracking-[0.3em] uppercase">hack &middot; build &middot; ship</span>
+            <div className="h-px w-12 sm:w-20 bg-gradient-to-l from-transparent to-brand/40" />
+          </div>
+
           {/* Tagline */}
-          <p className="animate-fade-in-up stagger-3 text-lg sm:text-xl text-text-muted max-w-2xl mx-auto mt-6 leading-relaxed">
-            We hack the rules. We hustle the craft.{' '}
-            <span className="text-text-bright">Building next-generation software powered by AI.</span>
+          <p className="animate-fade-in-up stagger-4 text-lg sm:text-xl md:text-2xl text-text-muted max-w-2xl mx-auto leading-relaxed">
+            We hack the rules. We hustle the craft.
+          </p>
+          <p className="animate-fade-in-up stagger-5 text-lg sm:text-xl md:text-2xl max-w-2xl mx-auto mt-2 leading-relaxed">
+            <span className="text-text-bright font-medium">Building next-generation software</span>{' '}
+            <span className="gradient-text-brand font-semibold">powered by AI.</span>
           </p>
 
           {/* Sub-tagline */}
-          <p className="animate-fade-in-up stagger-4 font-mono text-xs text-text-dim mt-4 tracking-wide">
-            // disruptive by design &mdash; engineered to break boundaries
+          <p className="animate-fade-in-up stagger-6 font-mono text-xs text-text-dim mt-5 tracking-wide">
+            {'>'} disruptive by design &mdash; engineered to break boundaries
           </p>
 
           {/* CTA */}
-          <div className="animate-fade-in-up stagger-5 mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+          <div className="animate-fade-in-up stagger-7 mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <a
               href="#philosophy"
-              className="btn-press group font-mono text-sm font-semibold tracking-wider px-8 py-3.5 rounded-[var(--radius-lg)] bg-accent text-white hover:bg-accent-hover shadow-[var(--shadow-glow-accent)] hover:shadow-[0_0_40px_rgba(59,130,246,0.4)] transition-all duration-300"
+              className="btn-press group relative font-mono text-sm font-semibold tracking-wider px-8 py-3.5 rounded-[var(--radius-lg)] bg-accent text-white hover:bg-accent-hover shadow-[var(--shadow-glow-accent)] hover:shadow-[0_0_50px_rgba(59,130,246,0.5)] transition-all duration-300 overflow-hidden"
             >
-              EXPLORE <span className="inline-block transition-transform duration-300 group-hover:translate-x-1">&rarr;</span>
+              <span className="relative z-10">EXPLORE <span className="inline-block transition-transform duration-300 group-hover:translate-x-1">&rarr;</span></span>
+              {/* Shimmer effect on button */}
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent" style={{ animation: 'line-glow 2s ease-in-out infinite' }} />
+              </div>
             </a>
             <a
               href="mailto:sergio@hackstler.com"
-              className="btn-press font-mono text-sm font-semibold tracking-wider px-8 py-3.5 rounded-[var(--radius-lg)] border border-border text-text-muted hover:text-text-bright hover:border-border-hi hover:bg-surface-hover transition-all duration-300"
+              className="btn-press font-mono text-sm font-semibold tracking-wider px-8 py-3.5 rounded-[var(--radius-lg)] border border-border text-text-muted hover:text-text-bright hover:border-accent/30 hover:bg-surface-hover hover:shadow-[0_0_24px_rgba(59,130,246,0.08)] transition-all duration-300"
             >
               GET IN TOUCH
             </a>
@@ -192,9 +243,12 @@ export function Landing() {
         </div>
 
         {/* Scroll indicator */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-fade-in-up stagger-7">
-          <div className="w-5 h-8 rounded-full border-2 border-border-hi flex justify-center pt-1.5">
-            <div className="w-1 h-2 bg-text-dim rounded-full" style={{ animation: 'float 2s ease-in-out infinite' }} />
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-fade-in-up stagger-9">
+          <div className="flex flex-col items-center gap-2">
+            <span className="font-mono text-[9px] text-text-dim tracking-widest uppercase">scroll</span>
+            <div className="w-5 h-8 rounded-full border border-border-hi flex justify-center pt-2">
+              <div className="w-1 h-1.5 bg-accent/60 rounded-full" style={{ animation: 'float 2s ease-in-out infinite' }} />
+            </div>
           </div>
         </div>
       </header>
