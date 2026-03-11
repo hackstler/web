@@ -310,10 +310,10 @@ export function Landing() {
             </span>
           </div>
 
-          {/* Main title with glitch */}
+          {/* Main title with glitch — only after typing completes */}
           <h1
-            className="animate-fade-in-up stagger-2 font-mono text-5xl sm:text-7xl md:text-[8rem] font-bold tracking-tighter mb-2 glitch-text"
-            data-text="hackstler"
+            className={`animate-fade-in-up stagger-2 font-mono text-5xl sm:text-7xl md:text-[8rem] font-bold tracking-tighter mb-2 ${done ? 'glitch-text' : ''}`}
+            data-text={done ? 'hackstler' : ''}
           >
             <span className="gradient-text">{displayed}</span>
             <span
