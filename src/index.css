@@ -246,6 +246,35 @@
   animation: glitch-2 8s ease-in-out infinite 0.5s;
 }
 
+/* Pillar card — mouse-tracking glow */
+.pillar-card {
+  --mouse-x: 50%;
+  --mouse-y: 50%;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.pillar-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    400px circle at var(--mouse-x) var(--mouse-y),
+    var(--pillar-accent, rgba(59, 130, 246, 0.06)),
+    transparent 60%
+  );
+  opacity: 0;
+  transition: opacity 0.4s;
+  pointer-events: none;
+}
+.pillar-card:hover::before {
+  opacity: 1;
+}
+.pillar-card:hover {
+  border-color: color-mix(in srgb, var(--pillar-accent, #3b82f6) 20%, transparent);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.06), 0 8px 40px rgba(0,0,0,0.4),
+              0 0 60px color-mix(in srgb, var(--pillar-accent, #3b82f6) 8%, transparent);
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }

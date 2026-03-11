@@ -1,5 +1,5 @@
 import { useReveal } from '../hooks/useReveal'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 
 /* ─── Typing effect hook ─────────────────────────────────── */
 
@@ -24,6 +24,36 @@ function useTyping(text: string, speed = 60, delay = 500) {
   }, [text, speed, delay])
 
   return { displayed, done }
+}
+
+/* ─── Scroll-aware nav hook ──────────────────────────────── */
+
+function useScrollNav() {
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    const onScroll = () => setVisible(window.scrollY > window.innerHeight * 0.8)
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  return visible
+}
+
+/* ─── Mouse-tracking glow hook ───────────────────────────── */
+
+function useMouseGlow() {
+  const ref = useRef<HTMLDivElement>(null)
+
+  const handleMouse = useCallback((e: React.MouseEvent) => {
+    const el = ref.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    el.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`)
+    el.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`)
+  }, [])
+
+  return { ref, handleMouse }
 }
 
 /* ─── Logo SVG ───────────────────────────────────────────── */
@@ -60,32 +90,119 @@ function Section({ children, className = '', id }: { children: React.ReactNode; 
   )
 }
 
-/* ─── Pillar card ────────────────────────────────────────── */
+/* ─── Philosophy Pillar (immersive) ──────────────────────── */
 
-interface PillarProps {
-  icon: React.ReactNode
+interface PillarBlockProps {
+  index: string
+  keyword: string
   title: string
   description: string
-  accent: string
-  glow: string
-  delay: number
+  manifesto: string
+  accentColor: string
+  glowColor: string
+  codeSnippet: string[]
+  reverse?: boolean
 }
 
-function Pillar({ icon, title, description, accent, glow, delay }: PillarProps) {
-  const { ref, visible } = useReveal(0.1)
+function PillarBlock({ index, keyword, title, description, manifesto, accentColor, glowColor, codeSnippet, reverse }: PillarBlockProps) {
+  const { ref, visible } = useReveal(0.12)
+  const { ref: cardRef, handleMouse } = useMouseGlow()
+
   return (
     <div
       ref={ref}
-      style={{ '--card-glow': glow, '--card-accent': accent, animationDelay: `${delay}s` } as React.CSSProperties}
-      className={`glow-card p-6 sm:p-8 rounded-[var(--radius-xl)] border border-border bg-surface/60 backdrop-blur-sm transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'}`}
+      className={`relative transition-all duration-1000 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-16'}`}
     >
-      <div className="w-12 h-12 rounded-[var(--radius-lg)] flex items-center justify-center mb-5 text-2xl"
-        style={{ background: `${glow}`.replace('0.12', '0.1'), boxShadow: `0 0 24px ${glow}` }}
-      >
-        {icon}
+      {/* Background glow for this pillar */}
+      <div
+        className="absolute -inset-20 pointer-events-none rounded-full blur-[160px] opacity-0 transition-opacity duration-1000"
+        style={{ background: glowColor, opacity: visible ? 0.06 : 0 }}
+      />
+
+      <div className={`relative grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16 items-center ${reverse ? 'lg:direction-rtl' : ''}`}>
+        {/* Text side */}
+        <div className={`space-y-6 ${reverse ? 'lg:order-2 lg:direction-ltr' : ''}`}>
+          {/* Index + keyword */}
+          <div className="flex items-center gap-3">
+            <span className="font-mono text-xs tracking-widest" style={{ color: accentColor }}>
+              {index}
+            </span>
+            <div className="h-px flex-1 max-w-16" style={{ background: `linear-gradient(90deg, ${accentColor}40, transparent)` }} />
+          </div>
+
+          {/* Keyword big */}
+          <div
+            className="font-mono text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tighter"
+            style={{
+              background: `linear-gradient(135deg, #fafafa 0%, ${accentColor} 100%)`,
+              WebkitBackgroundClip: 'text',
+              backgroundClip: 'text',
+              color: 'transparent',
+            }}
+          >
+            {keyword}
+          </div>
+
+          {/* Title */}
+          <h3 className="text-xl sm:text-2xl font-semibold text-text-bright leading-tight">
+            {title}
+          </h3>
+
+          {/* Description */}
+          <p className="text-text leading-relaxed max-w-lg">
+            {description}
+          </p>
+
+          {/* Manifesto quote */}
+          <div className="relative pl-4 border-l-2" style={{ borderColor: `${accentColor}40` }}>
+            <p className="font-mono text-xs leading-relaxed" style={{ color: `${accentColor}cc` }}>
+              "{manifesto}"
+            </p>
+          </div>
+        </div>
+
+        {/* Visual side — terminal/code card */}
+        <div className={`${reverse ? 'lg:order-1 lg:direction-ltr' : ''}`}>
+          <div
+            ref={cardRef}
+            onMouseMove={handleMouse}
+            className="pillar-card relative rounded-[var(--radius-xl)] border border-border bg-surface/60 backdrop-blur-sm overflow-hidden p-6 sm:p-8"
+            style={{ '--pillar-accent': accentColor } as React.CSSProperties}
+          >
+            {/* Gradient top edge */}
+            <div className="absolute top-0 left-0 right-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${accentColor}40, transparent)` }} />
+
+            {/* Code block */}
+            <div className="font-mono text-xs sm:text-sm leading-loose text-text-muted">
+              {codeSnippet.map((line, i) => (
+                <div
+                  key={i}
+                  className={`transition-all duration-500 ${visible ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-6'}`}
+                  style={{ transitionDelay: visible ? `${0.3 + i * 0.08}s` : '0s' }}
+                >
+                  {line.startsWith('//') ? (
+                    <span className="text-text-dim">{line}</span>
+                  ) : line.includes('=') || line.includes(':') ? (
+                    <span>
+                      <span style={{ color: accentColor }}>{line.split(/[=:]/)[0]}</span>
+                      <span className="text-text-dim">{line.includes('=') ? '=' : ':'}</span>
+                      <span className="text-text">{line.split(/[=:]/)[1]}</span>
+                    </span>
+                  ) : line.includes('✓') || line.includes('>>>') ? (
+                    <span className="text-green">{line}</span>
+                  ) : (
+                    <span>{line}</span>
+                  )}
+                </div>
+              ))}
+              <span
+                className="inline-block w-2 h-4 align-middle mt-1"
+                style={{ backgroundColor: `${accentColor}80`, animation: 'typing-cursor 1s step-end infinite' }}
+              />
+            </div>
+          </div>
+        </div>
       </div>
-      <h3 className="text-lg font-semibold text-text-bright mb-3">{title}</h3>
-      <p className="text-sm text-text leading-relaxed">{description}</p>
     </div>
   )
 }
@@ -111,11 +228,12 @@ function TechBadge({ label, delay }: { label: string; delay: number }) {
 
 export function Landing() {
   const { displayed, done } = useTyping('hackstler', 80, 800)
+  const navVisible = useScrollNav()
 
   return (
     <div className="relative overflow-hidden">
 
-      {/* ── Ambient orbs (hero-only, stronger) ────────────── */}
+      {/* ── Ambient orbs ─────────────────────────────────────── */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
         <div className="absolute top-[10%] left-[15%] w-[700px] h-[700px] bg-accent/[0.06] rounded-full blur-[200px]" style={{ animation: 'orb-drift 12s ease-in-out infinite, glow-pulse 6s ease-in-out infinite' }} />
         <div className="absolute bottom-[10%] right-[10%] w-[600px] h-[600px] bg-brand/[0.05] rounded-full blur-[180px]" style={{ animation: 'orb-drift 15s ease-in-out infinite reverse, glow-pulse 8s ease-in-out infinite 2s' }} />
@@ -162,19 +280,23 @@ export function Landing() {
         {/* Gradient bar top */}
         <div className="gradient-bar h-[2px] fixed top-0 left-0 right-0 z-50" />
 
-        {/* Nav */}
-        <nav className="fixed top-[2px] left-0 right-0 z-40 glass border-b border-border">
-          <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Logo className="w-8 h-8" />
+        {/* Nav — appears on scroll */}
+        <nav className={`fixed top-[2px] left-0 right-0 z-40 glass border-b border-border transition-all duration-500 ${navVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-full pointer-events-none'}`}>
+          <div className="max-w-6xl mx-auto px-6 py-3.5 flex items-center justify-between">
+            <a href="#" className="flex items-center gap-3 group">
+              <Logo className="w-7 h-7 transition-transform duration-300 group-hover:scale-110" />
               <span className="font-mono text-sm font-semibold text-text-bright tracking-tight">HACKSTLER</span>
-            </div>
-            <a
-              href="mailto:sergio@hackstler.com"
-              className="btn-press font-mono text-xs font-semibold tracking-wider px-5 py-2 rounded-[var(--radius-md)] border border-accent/30 text-accent hover:bg-accent-dim hover:border-accent/50 hover:shadow-[0_0_20px_rgba(59,130,246,0.15)] transition-all duration-300"
-            >
-              CONTACT
             </a>
+            <div className="flex items-center gap-6">
+              <a href="#philosophy" className="hidden sm:block font-mono text-[11px] text-text-muted hover:text-accent tracking-wider uppercase transition-colors">Philosophy</a>
+              <a href="#work" className="hidden sm:block font-mono text-[11px] text-text-muted hover:text-brand tracking-wider uppercase transition-colors">Work</a>
+              <a
+                href="mailto:sergio@hackstler.com"
+                className="btn-press font-mono text-[11px] font-semibold tracking-wider px-4 py-1.5 rounded-[var(--radius-sm)] border border-accent/30 text-accent hover:bg-accent-dim hover:border-accent/50 hover:shadow-[0_0_20px_rgba(59,130,246,0.15)] transition-all duration-300"
+              >
+                CONTACT
+              </a>
+            </div>
           </div>
         </nav>
 
@@ -256,53 +378,110 @@ export function Landing() {
       {/* ══════════════════════════════════════════════════════ */}
       {/* PHILOSOPHY                                            */}
       {/* ══════════════════════════════════════════════════════ */}
-      <Section id="philosophy" className="py-24 sm:py-32 px-6">
-        <div className="max-w-6xl mx-auto">
-          {/* Section header */}
-          <div className="text-center mb-16 sm:mb-20">
-            <span className="font-mono text-xs text-accent tracking-widest uppercase mb-4 block">
-              // 001 &mdash; Philosophy
-            </span>
-            <h2 className="text-3xl sm:text-5xl font-bold gradient-text tracking-tight mb-6">
-              Hack the system.<br className="hidden sm:block" /> Hustle the outcome.
-            </h2>
-            <p className="text-text max-w-2xl mx-auto leading-relaxed">
-              Hackstler is not a company. It's a mindset. Born from the fusion of{' '}
-              <span className="text-accent font-semibold">hacker</span> thinking and{' '}
-              <span className="text-brand font-semibold">hustler</span> execution &mdash;
-              the art of finding the smartest path through any problem, then putting in the relentless work to ship it.
-            </p>
+      <section id="philosophy" className="relative py-24 sm:py-32 px-6">
+        {/* Section intro */}
+        <Section className="max-w-4xl mx-auto text-center mb-20 sm:mb-28">
+          <span className="font-mono text-xs text-accent tracking-widest uppercase mb-4 block">
+            // 001 &mdash; Philosophy
+          </span>
+          <h2 className="text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-8">
+            <span className="gradient-text">Not a company.</span>{' '}
+            <span className="text-text-bright">A mindset.</span>
+          </h2>
+          <p className="text-lg text-text max-w-2xl mx-auto leading-relaxed">
+            Born from the fusion of{' '}
+            <span className="text-accent font-semibold">hacker</span> thinking and{' '}
+            <span className="text-brand font-semibold">hustler</span> execution &mdash;
+            the art of finding the smartest path through any problem,
+            then putting in the relentless work to ship it.
+          </p>
+          {/* Decorative separator */}
+          <div className="flex items-center justify-center gap-4 mt-12">
+            <div className="h-px w-16 bg-gradient-to-r from-transparent to-accent/30" />
+            <div className="w-1.5 h-1.5 rounded-full bg-accent/40" />
+            <div className="w-1.5 h-1.5 rounded-full bg-brand/40" />
+            <div className="w-1.5 h-1.5 rounded-full bg-brand-accent/40" />
+            <div className="h-px w-16 bg-gradient-to-l from-transparent to-brand-accent/30" />
           </div>
+        </Section>
 
-          {/* Pillars */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Pillar
-              icon={<span>&#x2F2F;</span>}
-              title="Hacker Mindset"
-              description="We don't accept the default path. Every system has a crack, every process has a shortcut. We reverse-engineer problems, find the vulnerability, and exploit it &mdash; not to destroy, but to build something better. Social engineering meets software engineering."
-              accent="#3b82f6"
-              glow="rgba(59,130,246,0.12)"
-              delay={0}
-            />
-            <Pillar
-              icon={<span>&#x26A1;</span>}
-              title="Hustler Execution"
-              description="Ideas without execution are just daydreams. We grind. We ship. We iterate until the product speaks louder than any pitch deck ever could. Every line of code is a bet placed on ourselves, and we play to win."
-              accent="#8b5cf6"
-              glow="rgba(139,92,246,0.12)"
-              delay={0.15}
-            />
-            <Pillar
-              icon={<span>&#x2318;</span>}
-              title="Disruptive by Design"
-              description="We operate at the edge of convention. Cyberpunk is not just an aesthetic &mdash; it's how we think about software. Question everything. Automate ruthlessly. Build systems that feel like they come from the future, because they do."
-              accent="#ec4899"
-              glow="rgba(236,72,153,0.12)"
-              delay={0.3}
-            />
-          </div>
+        {/* Pillar 1: HACK */}
+        <div className="max-w-6xl mx-auto mb-24 sm:mb-32">
+          <PillarBlock
+            index="001"
+            keyword="hack_"
+            title="Every system has a crack. We find it."
+            description="We don't accept the default path. Every process has a shortcut, every wall has a door that nobody tried. We reverse-engineer problems, find the hidden leverage points, and exploit them — not to destroy, but to build something fundamentally better."
+            manifesto="Social engineering meets software engineering. The best code isn't written — it's discovered."
+            accentColor="#3b82f6"
+            glowColor="rgba(59,130,246,1)"
+            codeSnippet={[
+              '// mindset.hack()',
+              'const problem = analyze(system)',
+              'const cracks = problem.findVulnerabilities()',
+              'const shortcut = cracks.exploit({',
+              '  goal: "build_better",',
+              '  method: "unconventional"',
+              '})',
+              '',
+              '>>> shortcut.execute()',
+              '✓ System improved. Rules rewritten.',
+            ]}
+          />
         </div>
-      </Section>
+
+        {/* Pillar 2: HUSTLE */}
+        <div className="max-w-6xl mx-auto mb-24 sm:mb-32">
+          <PillarBlock
+            index="002"
+            keyword="hustle_"
+            title="Ideas die in silence. We ship loud."
+            description="Ideas without execution are just daydreams. We grind. We ship. We iterate until the product speaks louder than any pitch deck ever could. Every line of code is a bet placed on ourselves, and we don't make bets we aren't willing to go all-in on."
+            manifesto="The gap between vision and reality is closed with obsession, not planning."
+            accentColor="#8b5cf6"
+            glowColor="rgba(139,92,246,1)"
+            reverse
+            codeSnippet={[
+              '// execution.hustle()',
+              'while (!shipped) {',
+              '  const iteration = build(fast)',
+              '  const feedback = deploy(iteration)',
+              '  learn(feedback)',
+              '  adapt()',
+              '}',
+              '',
+              '>>> product.status',
+              '✓ Live. Iterating. Unstoppable.',
+            ]}
+          />
+        </div>
+
+        {/* Pillar 3: DISRUPT */}
+        <div className="max-w-6xl mx-auto">
+          <PillarBlock
+            index="003"
+            keyword="disrupt_"
+            title="Convention is a vulnerability we exploit."
+            description="We operate at the edge of what's accepted. Cyberpunk isn't just our aesthetic — it's how we think about software. Question every assumption. Automate ruthlessly. Build systems that feel like they come from the future, because they do."
+            manifesto="The future doesn't ask permission. Neither do we."
+            accentColor="#ec4899"
+            glowColor="rgba(236,72,153,1)"
+            codeSnippet={[
+              '// paradigm.disrupt()',
+              'const rules = industry.getConventions()',
+              'const broken = rules.map(rule => {',
+              '  return rule.challenge({',
+              '    with: "first_principles",',
+              '    bias: "none"',
+              '  })',
+              '})',
+              '',
+              '>>> broken.rebuild()',
+              '✓ New paradigm established.',
+            ]}
+          />
+        </div>
+      </section>
 
       {/* ══════════════════════════════════════════════════════ */}
       {/* WHAT WE BUILD                                         */}
