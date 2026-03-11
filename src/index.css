@@ -129,6 +129,38 @@
   41%, 99% { transform: translateX(-100%); opacity: 0; }
 }
 
+@keyframes neon-flicker {
+  0%, 100% { opacity: 1; }
+  /* Long stable period */
+  89%  { opacity: 1; }
+  /* Rapid glitch burst */
+  90%  { opacity: 0.4; }
+  91%  { opacity: 1; }
+  92%  { opacity: 0.3; }
+  93%  { opacity: 0.9; }
+  94%  { opacity: 0.2; }
+  94.5%{ opacity: 1; }
+  95%  { opacity: 0.5; }
+  95.5%{ opacity: 1; }
+  96%  { opacity: 0.35; }
+  96.5%{ opacity: 1; }
+  97%  { opacity: 1; }
+}
+
+@keyframes neon-glow-flicker {
+  0%, 100% { box-shadow: 0 0 30px rgba(59,130,246,0.3), 0 0 60px rgba(59,130,246,0.1); }
+  89%  { box-shadow: 0 0 30px rgba(59,130,246,0.3), 0 0 60px rgba(59,130,246,0.1); }
+  90%  { box-shadow: 0 0 8px rgba(59,130,246,0.1), 0 0 20px rgba(59,130,246,0.05); }
+  91%  { box-shadow: 0 0 40px rgba(59,130,246,0.5), 0 0 80px rgba(59,130,246,0.2); }
+  92%  { box-shadow: 0 0 5px rgba(59,130,246,0.05); }
+  93%  { box-shadow: 0 0 35px rgba(59,130,246,0.4), 0 0 60px rgba(59,130,246,0.15); }
+  94%  { box-shadow: 0 0 2px rgba(59,130,246,0.02); }
+  94.5%{ box-shadow: 0 0 45px rgba(59,130,246,0.5), 0 0 90px rgba(59,130,246,0.2); }
+  95%  { box-shadow: 0 0 10px rgba(59,130,246,0.1); }
+  95.5%{ box-shadow: 0 0 30px rgba(59,130,246,0.3), 0 0 60px rgba(59,130,246,0.1); }
+  97%  { box-shadow: 0 0 30px rgba(59,130,246,0.3), 0 0 60px rgba(59,130,246,0.1); }
+}
+
 /* ── Utility classes ─────────────────────────────────────── */
 
 .animate-fade-in-up {

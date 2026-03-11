@@ -347,7 +347,8 @@ export function Landing() {
           <div className="animate-fade-in-up stagger-7 mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <a
               href="#philosophy"
-              className="btn-press group relative font-mono text-sm font-semibold tracking-wider px-8 py-3.5 rounded-[var(--radius-lg)] bg-accent text-white hover:bg-accent-hover shadow-[var(--shadow-glow-accent)] hover:shadow-[0_0_50px_rgba(59,130,246,0.5)] transition-all duration-300 overflow-hidden"
+              className="btn-press group relative font-mono text-sm font-semibold tracking-wider px-8 py-3.5 rounded-[var(--radius-lg)] bg-accent text-white hover:bg-accent-hover hover:shadow-[0_0_50px_rgba(59,130,246,0.5)] transition-all duration-300 overflow-hidden"
+              style={{ animation: 'neon-flicker 6s ease-in-out infinite, neon-glow-flicker 6s ease-in-out infinite' }}
             >
               <span className="relative z-10">EXPLORE <span className="inline-block transition-transform duration-300 group-hover:translate-x-1">&rarr;</span></span>
               {/* Shimmer — always alive, intensifies on hover */}
