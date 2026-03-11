@@ -1,34 +1,182 @@
-@import 'tailwindcss/base';
-@import 'tailwindcss/components';
-@import 'tailwindcss/utilities';
+@import "tailwindcss";
+
+@theme {
+  /* Surfaces */
+  --color-bg:             #09090b;
+  --color-surface:        #0f0f12;
+  --color-surface-hi:     #17171c;
+  --color-surface-hover:  #1c1c22;
+  --color-surface-raised: #222228;
+  --color-border:         #1c1c24;
+  --color-border-hi:      #2a2a35;
+
+  /* Text */
+  --color-text:           #a1a1aa;
+  --color-text-bright:    #fafafa;
+  --color-text-muted:     #63636e;
+  --color-text-dim:       #33333d;
+
+  /* Brand Triad */
+  --color-accent:         #3b82f6;
+  --color-accent-hover:   #2563eb;
+  --color-accent-muted:   #1d4ed8;
+  --color-accent-dim:     rgba(59, 130, 246, 0.08);
+  --color-brand:          #8b5cf6;
+  --color-brand-dim:      rgba(139, 92, 246, 0.08);
+  --color-brand-accent:   #ec4899;
+
+  /* Glass */
+  --color-glass:          rgba(15, 15, 18, 0.80);
+  --color-glass-subtle:   rgba(15, 15, 18, 0.60);
+  --color-shimmer:        rgba(255, 255, 255, 0.03);
+
+  /* Shadows */
+  --shadow-card:          0 0 0 1px rgba(255,255,255,0.04), 0 2px 8px rgba(0,0,0,0.4);
+  --shadow-card-hover:    0 0 0 1px rgba(255,255,255,0.08), 0 8px 32px rgba(0,0,0,0.5), 0 0 48px rgba(59,130,246,0.06);
+  --shadow-glow-accent:   0 0 30px rgba(59,130,246,0.3), 0 0 60px rgba(59,130,246,0.1);
+  --shadow-glow-brand:    0 0 30px rgba(139,92,246,0.3), 0 0 60px rgba(139,92,246,0.1);
+
+  /* Radii */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+
+  /* Fonts */
+  --font-mono: 'SF Mono', ui-monospace, 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+}
+
+/* ── Animations ──────────────────────────────────────────── */
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes gradient-shift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50%      { opacity: 0.6; transform: scale(1.08); }
+}
+
+@keyframes typing-cursor {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-12px); }
+}
+
+@keyframes scan-line {
+  0%   { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+
+@keyframes reveal-line {
+  from { width: 0; opacity: 0; }
+  to   { width: 100%; opacity: 1; }
+}
+
+/* ── Utility classes ─────────────────────────────────────── */
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.stagger-1 { animation-delay: 0.1s; }
+.stagger-2 { animation-delay: 0.2s; }
+.stagger-3 { animation-delay: 0.3s; }
+.stagger-4 { animation-delay: 0.4s; }
+.stagger-5 { animation-delay: 0.5s; }
+.stagger-6 { animation-delay: 0.6s; }
+.stagger-7 { animation-delay: 0.7s; }
+.stagger-8 { animation-delay: 0.8s; }
+.stagger-9 { animation-delay: 0.9s; }
+.stagger-10 { animation-delay: 1.0s; }
+
+/* Gradient text — Hackstler signature */
+.gradient-text {
+  background: linear-gradient(135deg, #fafafa 0%, #3b82f6 50%, #8b5cf6 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.gradient-text-brand {
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #ec4899 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Gradient bar — animated accent */
+.gradient-bar {
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899, #3b82f6);
+  background-size: 200% 100%;
+  animation: gradient-shift 3s ease infinite;
+}
+
+/* Glass surfaces */
+.glass {
+  background: var(--color-glass);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+/* Button press */
+.btn-press:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* Glow card hover */
+.glow-card {
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.glow-card:hover {
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 8px 32px rgba(0,0,0,0.5),
+              0 0 40px var(--card-glow, rgba(59,130,246,0.12));
+  border-color: color-mix(in srgb, var(--card-accent, #3b82f6) 25%, transparent);
+  transform: translateY(-4px);
+}
+
+/* Noise overlay */
+.noise-bg::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  opacity: 0.012;
+  pointer-events: none;
+  z-index: 9999;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border-hi); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-text-dim); }
+
+/* Selection */
+::selection {
+  background: rgba(59, 130, 246, 0.3);
+  color: #fafafa;
+}
+
+html { scroll-behavior: smooth; }
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  background-color: #09090b;
+  color: #a1a1aa;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
-}
-
-.app-container {
-  background-color: #0047AB; /* Color principal */
-  color: #FFFFFF; /* Color de texto */
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.content-container {
-  flex-grow: 1;
-  padding: 20px;
-}
-
-
-
-/* Estilos adicionales según sea necesario */
