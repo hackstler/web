@@ -1,5 +1,6 @@
 import { useReveal } from '../hooks/useReveal'
 import { useEffect, useState, useRef, useCallback } from 'react'
+import { useLanguage } from '../i18n'
 
 /* ─── Typing effect hook ─────────────────────────────────── */
 
@@ -40,21 +41,48 @@ function useScrollNav() {
   return visible
 }
 
-/* ─── Mouse-tracking glow hook ───────────────────────────── */
+/* ─── Random neon flicker hook ───────────────────────────── */
 
-function useMouseGlow() {
-  const ref = useRef<HTMLDivElement>(null)
+function useNeonFlicker() {
+  const ref = useRef<HTMLAnchorElement>(null)
 
-  const handleMouse = useCallback((e: React.MouseEvent) => {
+  useEffect(() => {
     const el = ref.current
     if (!el) return
-    const rect = el.getBoundingClientRect()
-    el.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`)
-    el.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`)
+    let timeout: ReturnType<typeof setTimeout>
+    let cancelled = false
+
+    function flickerBurst() {
+      if (cancelled || !el) return
+      const steps = 3 + Math.floor(Math.random() * 5) // 3-7 flicker steps
+      let i = 0
+
+      function step() {
+        if (cancelled || i >= steps) {
+          el.style.opacity = '1'
+          el.style.boxShadow = ''
+          // Next burst in 1.5–4s (random)
+          timeout = setTimeout(flickerBurst, 1500 + Math.random() * 2500)
+          return
+        }
+        const opacity = 0.2 + Math.random() * 0.6
+        const glowIntensity = Math.random() * 0.5
+        el.style.opacity = `${opacity}`
+        el.style.boxShadow = `0 0 ${10 + glowIntensity * 40}px rgba(59,130,246,${glowIntensity}), 0 0 ${20 + glowIntensity * 60}px rgba(59,130,246,${glowIntensity * 0.4})`
+        i++
+        timeout = setTimeout(step, 40 + Math.random() * 60) // 40-100ms per step
+      }
+      step()
+    }
+
+    // Start first burst after 2-4s
+    timeout = setTimeout(flickerBurst, 2000 + Math.random() * 2000)
+    return () => { cancelled = true; clearTimeout(timeout) }
   }, [])
 
-  return { ref, handleMouse }
+  return ref
 }
+
 
 /* ─── Logo SVG ───────────────────────────────────────────── */
 
@@ -90,116 +118,453 @@ function Section({ children, className = '', id }: { children: React.ReactNode; 
   )
 }
 
-/* ─── Philosophy Pillar (immersive) ──────────────────────── */
+/* ─── Decorative section divider ─────────────────────────── */
 
-interface PillarBlockProps {
-  index: string
-  keyword: string
-  title: string
-  description: string
-  manifesto: string
-  accentColor: string
-  glowColor: string
-  codeSnippet: string[]
-  reverse?: boolean
+function SectionDivider({ accent = 'accent' }: { accent?: 'accent' | 'brand' | 'brand-accent' }) {
+  return (
+    <div className="flex items-center justify-center py-2">
+      <div className={`h-px w-16 sm:w-24 bg-gradient-to-r from-transparent to-${accent}/20`} />
+      <div className={`w-1 h-1 rounded-full bg-${accent}/30 mx-3`} />
+      <div className={`h-px w-16 sm:w-24 bg-gradient-to-l from-transparent to-${accent}/20`} />
+    </div>
+  )
 }
 
-function PillarBlock({ index, keyword, title, description, manifesto, accentColor, glowColor, codeSnippet, reverse }: PillarBlockProps) {
-  const { ref, visible } = useReveal(0.12)
-  const { ref: cardRef, handleMouse } = useMouseGlow()
+/* ─── Chat Demo (animated step-by-step conversation) ─────── */
+
+/* Speeds (ms) */
+const USER_CHAR_SPEED = 35
+const BOT_CHAR_SPEED = 18
+const THINKING_DURATION = 1200
+const PAUSE_AFTER_MSG = 400
+
+const TAB_ACCENTS = ['#3b82f6', '#8b5cf6', '#ec4899'] as const
+
+type DemoPhase =
+  | { kind: 'idle' }
+  | { kind: 'typing'; msgIndex: number; charIndex: number }
+  | { kind: 'thinking'; msgIndex: number }
+  | { kind: 'done' }
+
+function ChatDemo() {
+  const { t } = useLanguage()
+  const containerRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const hasStarted = useRef(false)
+
+  const [activeTab, setActiveTab] = useState(0)
+  const messages = t.demo.tabs[activeTab].messages
+  const [phase, setPhase] = useState<DemoPhase>({ kind: 'idle' })
+  const [renderedMessages, setRenderedMessages] = useState<Array<{ role: 'user' | 'bot'; text: string }>>([])
+  const [transitioning, setTransitioning] = useState(false)
+
+  /* Switch tab — fade out, swap, fade in */
+  const switchTab = useCallback((tabIndex: number) => {
+    if (tabIndex === activeTab || transitioning) return
+    setTransitioning(true)
+    setTimeout(() => {
+      setActiveTab(tabIndex)
+      setRenderedMessages([])
+      setPhase({ kind: 'typing', msgIndex: 0, charIndex: 0 })
+      setTimeout(() => setTransitioning(false), 30)
+    }, 150)
+  }, [activeTab, transitioning])
+
+  /* Auto-scroll chat to bottom */
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }
+  }, [renderedMessages, phase])
+
+  /* Intersection observer — start animation when section enters viewport */
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !hasStarted.current) {
+          hasStarted.current = true
+          setPhase({ kind: 'typing', msgIndex: 0, charIndex: 0 })
+        }
+      },
+      { threshold: 0.3 }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  /* Animation engine */
+  useEffect(() => {
+    if (phase.kind === 'idle' || phase.kind === 'done') return
+
+    if (phase.kind === 'typing') {
+      const { msgIndex, charIndex } = phase
+      const msg = messages[msgIndex]
+      if (!msg) { setPhase({ kind: 'done' }); return }
+      const speed = msg.role === 'user' ? USER_CHAR_SPEED : BOT_CHAR_SPEED
+
+      if (charIndex < msg.text.length) {
+        const timer = setTimeout(() => {
+          const nextChar = charIndex + 1
+          setRenderedMessages(prev => {
+            const updated = [...prev]
+            if (updated.length <= msgIndex) {
+              updated.push({ role: msg.role, text: msg.text.slice(0, nextChar) })
+            } else {
+              updated[msgIndex] = { role: msg.role, text: msg.text.slice(0, nextChar) }
+            }
+            return updated
+          })
+          setPhase({ kind: 'typing', msgIndex, charIndex: nextChar })
+        }, speed)
+        return () => clearTimeout(timer)
+      } else {
+        const nextIndex = msgIndex + 1
+        if (nextIndex >= messages.length) {
+          const timer = setTimeout(() => setPhase({ kind: 'done' }), PAUSE_AFTER_MSG)
+          return () => clearTimeout(timer)
+        }
+        const nextMsg = messages[nextIndex]
+        if (nextMsg.role === 'bot') {
+          const timer = setTimeout(() => setPhase({ kind: 'thinking', msgIndex: nextIndex }), PAUSE_AFTER_MSG)
+          return () => clearTimeout(timer)
+        } else {
+          const timer = setTimeout(() => setPhase({ kind: 'typing', msgIndex: nextIndex, charIndex: 0 }), PAUSE_AFTER_MSG)
+          return () => clearTimeout(timer)
+        }
+      }
+    }
+
+    if (phase.kind === 'thinking') {
+      const timer = setTimeout(() => {
+        setPhase({ kind: 'typing', msgIndex: phase.msgIndex, charIndex: 0 })
+      }, THINKING_DURATION)
+      return () => clearTimeout(timer)
+    }
+  }, [phase, messages])
+
+  /* Render helper: colorize checkmarks in bot text */
+  const renderBotText = (text: string) => {
+    if (!text.includes('\u2713')) return <span className="text-text-muted">{text}</span>
+    const parts = text.split('\u2713')
+    return (
+      <span className="text-text-muted">
+        {parts[0]}<span className="text-green">{'\u2713'}</span>{parts.slice(1).join('\u2713')}
+      </span>
+    )
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      className="rounded-[var(--radius-xl)] border border-border bg-surface overflow-hidden shadow-[var(--shadow-card)]"
+    >
+      {/* Title bar with tabs */}
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-surface-hi/50">
+        <div className="flex gap-1.5">
+          <div className="w-3 h-3 rounded-full bg-red/60" />
+          <div className="w-3 h-3 rounded-full bg-yellow/60" />
+          <div className="w-3 h-3 rounded-full bg-green/60" />
+        </div>
+        <span className="font-mono text-[11px] text-text-dim ml-2">{t.demo.titleBarText}</span>
+        {/* Tab selector */}
+        <div className="ml-auto flex gap-1">
+          {t.demo.tabs.map((tab, i) => (
+            <button
+              key={i}
+              onClick={() => switchTab(i)}
+              className="font-mono text-[10px] tracking-wider px-3 py-1 rounded-[var(--radius-sm)] transition-all duration-300 cursor-pointer"
+              style={{
+                color: activeTab === i ? TAB_ACCENTS[i] : undefined,
+                backgroundColor: activeTab === i ? `${TAB_ACCENTS[i]}15` : 'transparent',
+                borderBottom: activeTab === i ? `1px solid ${TAB_ACCENTS[i]}60` : '1px solid transparent',
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Chat area */}
+      <div ref={scrollRef} className="p-5 sm:p-6 font-mono text-xs sm:text-sm leading-relaxed space-y-4 min-h-[260px] max-h-[400px] overflow-y-auto transition-opacity duration-150" style={{ opacity: transitioning ? 0 : 1 }}>
+        {renderedMessages.map((msg, i) => (
+          <div key={`${activeTab}-${i}`} className="flex gap-2 animate-fade-in-up" style={{ animationDuration: '0.3s' }}>
+            {msg.role === 'user' ? (
+              <>
+                <span className="text-brand shrink-0">you &gt;</span>
+                <span className="text-text-bright">{msg.text}</span>
+                {phase.kind === 'typing' && phase.msgIndex === i && phase.charIndex < messages[i]?.text.length && (
+                  <span className="inline-block w-[3px] h-[1em] bg-brand/80 align-middle ml-0.5" style={{ animation: 'typing-cursor 0.6s step-end infinite' }} />
+                )}
+              </>
+            ) : (
+              <>
+                <span className="text-accent shrink-0">ast &gt;</span>
+                {renderBotText(msg.text)}
+                {phase.kind === 'typing' && phase.msgIndex === i && phase.charIndex < messages[i]?.text.length && (
+                  <span className="inline-block w-[3px] h-[1em] bg-accent/80 align-middle ml-0.5" style={{ animation: 'typing-cursor 0.6s step-end infinite' }} />
+                )}
+              </>
+            )}
+          </div>
+        ))}
+
+        {/* Thinking dots */}
+        {phase.kind === 'thinking' && (
+          <div className="flex gap-2 animate-fade-in-up" style={{ animationDuration: '0.2s' }}>
+            <span className="text-accent shrink-0">ast &gt;</span>
+            <span className="inline-flex gap-1 items-center">
+              <span className="w-1.5 h-1.5 rounded-full bg-accent/60" style={{ animation: 'thinking-dot 1.4s ease-in-out infinite' }} />
+              <span className="w-1.5 h-1.5 rounded-full bg-accent/60" style={{ animation: 'thinking-dot 1.4s ease-in-out infinite 0.2s' }} />
+              <span className="w-1.5 h-1.5 rounded-full bg-accent/60" style={{ animation: 'thinking-dot 1.4s ease-in-out infinite 0.4s' }} />
+            </span>
+          </div>
+        )}
+
+        {/* Final blinking cursor when done */}
+        {phase.kind === 'done' && (
+          <div className="flex gap-2">
+            <span className="text-green shrink-0">&gt;</span>
+            <span className="text-green text-[11px]">session complete</span>
+            <span className="inline-block w-2 h-4 bg-accent/80 align-middle" style={{ animation: 'typing-cursor 1s step-end infinite' }} />
+          </div>
+        )}
+
+        {/* Idle state — waiting cursor */}
+        {phase.kind === 'idle' && (
+          <div className="flex gap-2 text-text-dim">
+            <span>&gt;</span>
+            <span>waiting for input...</span>
+            <span className="inline-block w-2 h-4 bg-text-dim/40 align-middle" style={{ animation: 'typing-cursor 1s step-end infinite' }} />
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/* ─── FAQ Item (glassmorphism + terminal accent) ─────────── */
+
+function FAQItem({ question, answer, accentColor, delay }: { question: string; answer: string; accentColor: string; delay: number }) {
+  const [open, setOpen] = useState(false)
+  const { ref, visible } = useReveal(0.1)
 
   return (
     <div
       ref={ref}
-      className={`relative transition-all duration-1000 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-16'}`}
+      style={{ transitionDelay: `${delay}s` }}
+      className={`rounded-[var(--radius-lg)] border overflow-hidden backdrop-blur-sm transition-all duration-500 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'} ${open ? 'bg-surface/50 border-border-hi' : 'bg-surface/20 border-border/50'}`}
     >
-      {/* Background glow for this pillar */}
-      <div
-        className="absolute -inset-20 pointer-events-none rounded-full blur-[160px] opacity-0 transition-opacity duration-1000"
-        style={{ background: glowColor, opacity: visible ? 0.06 : 0 }}
-      />
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between gap-4 p-5 text-left cursor-pointer group"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="font-mono text-xs shrink-0" style={{ color: accentColor }}>&gt;</span>
+          <span className="text-sm font-medium text-text-bright group-hover:text-white transition-colors">{question}</span>
+        </div>
+        <span
+          className="font-mono text-sm shrink-0 transition-transform duration-300"
+          style={{ color: accentColor, transform: open ? 'rotate(45deg)' : 'none' }}
+        >+</span>
+      </button>
+      <div className={`overflow-hidden transition-all duration-400 ${open ? 'max-h-48 opacity-100' : 'max-h-0 opacity-0'}`}>
+        <div className="px-5 pb-5 pl-11">
+          <div className="h-px mb-3" style={{ background: `linear-gradient(90deg, ${accentColor}20, transparent)` }} />
+          <p className="text-xs text-text-muted leading-relaxed">{answer}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
 
-      <div className={`relative grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16 items-center ${reverse ? 'lg:direction-rtl' : ''}`}>
-        {/* Text side */}
-        <div className={`space-y-6 ${reverse ? 'lg:order-2 lg:direction-ltr' : ''}`}>
-          {/* Index + keyword */}
-          <div className="flex items-center gap-3">
-            <span className="font-mono text-xs tracking-widest" style={{ color: accentColor }}>
-              {index}
-            </span>
-            <div className="h-px flex-1 max-w-16" style={{ background: `linear-gradient(90deg, ${accentColor}40, transparent)` }} />
+/* ─── Philosophy Terminal Boot ─────────────────────────────── */
+
+const PILLAR_COMMANDS = ['hack_ --find-shortcut', 'hustle_ --ship-it', 'disrupt_ --no-defaults'] as const
+
+type BootPhase =
+  | { kind: 'idle' }
+  | { kind: 'typing'; pillar: number; charIndex: number }
+  | { kind: 'reveal-title'; pillar: number }
+  | { kind: 'reveal-manifesto'; pillar: number }
+  | { kind: 'reveal-ok'; pillar: number }
+  | { kind: 'done' }
+
+function PhilosophyTerminal() {
+  const { t } = useLanguage()
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [phase, setPhase] = useState<BootPhase>({ kind: 'idle' })
+
+  /* Each pillar's rendered state */
+  const [pillars, setPillars] = useState([
+    { cmd: '', showTitle: false, showManifesto: false, showOk: false },
+    { cmd: '', showTitle: false, showManifesto: false, showOk: false },
+    { cmd: '', showTitle: false, showManifesto: false, showOk: false },
+  ])
+  const [showFinal, setShowFinal] = useState(false)
+
+  /* Start when terminal enters viewport */
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setPhase({ kind: 'typing', pillar: 0, charIndex: 0 })
+        }
+      },
+      { threshold: 0.25 }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  /* Animation engine — single state machine, no nested timeouts */
+  useEffect(() => {
+    if (phase.kind === 'idle' || phase.kind === 'done') return
+
+    if (phase.kind === 'typing') {
+      const { pillar, charIndex } = phase
+      const cmd = PILLAR_COMMANDS[pillar]
+      if (charIndex < cmd.length) {
+        const timer = setTimeout(() => {
+          setPillars(prev => {
+            const next = [...prev]
+            next[pillar] = { ...next[pillar], cmd: cmd.slice(0, charIndex + 1) }
+            return next
+          })
+          setPhase({ kind: 'typing', pillar, charIndex: charIndex + 1 })
+        }, 35)
+        return () => clearTimeout(timer)
+      } else {
+        /* Command done typing → reveal title */
+        const timer = setTimeout(() => setPhase({ kind: 'reveal-title', pillar }), 300)
+        return () => clearTimeout(timer)
+      }
+    }
+
+    if (phase.kind === 'reveal-title') {
+      setPillars(prev => {
+        const next = [...prev]
+        next[phase.pillar] = { ...next[phase.pillar], showTitle: true }
+        return next
+      })
+      const timer = setTimeout(() => setPhase({ kind: 'reveal-manifesto', pillar: phase.pillar }), 400)
+      return () => clearTimeout(timer)
+    }
+
+    if (phase.kind === 'reveal-manifesto') {
+      setPillars(prev => {
+        const next = [...prev]
+        next[phase.pillar] = { ...next[phase.pillar], showManifesto: true }
+        return next
+      })
+      const timer = setTimeout(() => setPhase({ kind: 'reveal-ok', pillar: phase.pillar }), 300)
+      return () => clearTimeout(timer)
+    }
+
+    if (phase.kind === 'reveal-ok') {
+      setPillars(prev => {
+        const next = [...prev]
+        next[phase.pillar] = { ...next[phase.pillar], showOk: true }
+        return next
+      })
+      const nextPillar = phase.pillar + 1
+      if (nextPillar < 3) {
+        const timer = setTimeout(() => setPhase({ kind: 'typing', pillar: nextPillar, charIndex: 0 }), 500)
+        return () => clearTimeout(timer)
+      } else {
+        const timer = setTimeout(() => {
+          setShowFinal(true)
+          setPhase({ kind: 'done' })
+        }, 600)
+        return () => clearTimeout(timer)
+      }
+    }
+  }, [phase])
+
+  const isActive = phase.kind !== 'idle'
+
+  return (
+    <div ref={containerRef} className="max-w-3xl mx-auto">
+      <div className="rounded-[var(--radius-xl)] border border-border bg-surface overflow-hidden shadow-[var(--shadow-card)]">
+        {/* Title bar */}
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-surface-hi/50">
+          <div className="flex gap-1.5">
+            <div className="w-3 h-3 rounded-full bg-red/60" />
+            <div className="w-3 h-3 rounded-full bg-yellow/60" />
+            <div className="w-3 h-3 rounded-full bg-green/60" />
           </div>
-
-          {/* Keyword big */}
-          <div
-            className="font-mono text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tighter"
-            style={{
-              background: `linear-gradient(135deg, #fafafa 0%, ${accentColor} 100%)`,
-              WebkitBackgroundClip: 'text',
-              backgroundClip: 'text',
-              color: 'transparent',
-            }}
-          >
-            {keyword}
-          </div>
-
-          {/* Title */}
-          <h3 className="text-xl sm:text-2xl font-semibold text-text-bright leading-tight">
-            {title}
-          </h3>
-
-          {/* Description */}
-          <p className="text-text leading-relaxed max-w-lg">
-            {description}
-          </p>
-
-          {/* Manifesto quote */}
-          <div className="relative pl-4 border-l-2" style={{ borderColor: `${accentColor}40` }}>
-            <p className="font-mono text-xs leading-relaxed" style={{ color: `${accentColor}cc` }}>
-              "{manifesto}"
-            </p>
-          </div>
+          <span className="font-mono text-[11px] text-text-dim ml-2">hackstler@core ~ /philosophy</span>
         </div>
 
-        {/* Visual side — terminal/code card */}
-        <div className={`${reverse ? 'lg:order-1 lg:direction-ltr' : ''}`}>
+        {/* Scanline overlay */}
+        <div className="relative">
           <div
-            ref={cardRef}
-            onMouseMove={handleMouse}
-            className="pillar-card relative rounded-[var(--radius-xl)] border border-border bg-surface/60 backdrop-blur-sm overflow-hidden p-6 sm:p-8"
-            style={{ '--pillar-accent': accentColor } as React.CSSProperties}
-          >
-            {/* Gradient top edge */}
-            <div className="absolute top-0 left-0 right-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${accentColor}40, transparent)` }} />
+            className="absolute inset-0 pointer-events-none z-10 opacity-[0.03]"
+            style={{ background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.04) 2px, rgba(255,255,255,0.04) 4px)' }}
+          />
 
-            {/* Code block */}
-            <div className="font-mono text-xs sm:text-sm leading-loose text-text-muted">
-              {codeSnippet.map((line, i) => (
-                <div
-                  key={i}
-                  className={`transition-all duration-500 ${visible ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-6'}`}
-                  style={{ transitionDelay: visible ? `${0.3 + i * 0.08}s` : '0s' }}
-                >
-                  {line.startsWith('//') ? (
-                    <span className="text-text-dim">{line}</span>
-                  ) : line.includes('=') || line.includes(':') ? (
-                    <span>
-                      <span style={{ color: accentColor }}>{line.split(/[=:]/)[0]}</span>
-                      <span className="text-text-dim">{line.includes('=') ? '=' : ':'}</span>
-                      <span className="text-text">{line.split(/[=:]/)[1]}</span>
-                    </span>
-                  ) : line.includes('✓') || line.includes('>>>') ? (
-                    <span className="text-green">{line}</span>
-                  ) : (
-                    <span>{line}</span>
-                  )}
-                </div>
-              ))}
-              <span
-                className="inline-block w-2 h-4 align-middle mt-1"
-                style={{ backgroundColor: `${accentColor}80`, animation: 'typing-cursor 1s step-end infinite' }}
-              />
+          {/* Terminal body */}
+          <div className="p-6 sm:p-8 font-mono text-xs sm:text-sm leading-relaxed space-y-6">
+            {/* Init line */}
+            <div className={`transition-opacity duration-500 ${isActive ? 'opacity-100' : 'opacity-0'}`}>
+              <span className="text-text-dim">{'>'} initializing hackstler.philosophy...</span>
             </div>
+
+            {/* Pillar blocks */}
+            {pillars.map((p, i) => {
+              const color = ACCENT_CYCLE[i]
+              const pillar = t.philosophy.pillars[i]
+              if (!p.cmd && !(phase.kind === 'typing' && phase.pillar === i)) return null
+
+              return (
+                <div key={i} className="space-y-1.5">
+                  {/* Command line */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-text-dim select-none">$</span>
+                    <span className="font-bold" style={{ color }}>{p.cmd}</span>
+                    {phase.kind === 'typing' && phase.pillar === i && phase.charIndex < PILLAR_COMMANDS[i].length && (
+                      <span
+                        className="inline-block w-[7px] h-[14px] align-middle"
+                        style={{ backgroundColor: color, animation: 'typing-cursor 0.6s step-end infinite' }}
+                      />
+                    )}
+                  </div>
+
+                  {/* Output: title */}
+                  <div className={`transition-all duration-500 ${p.showTitle ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-3'}`}>
+                    <span className="text-text-dim select-none">&gt; </span>
+                    <span className="text-text-bright">{pillar.title}</span>
+                  </div>
+
+                  {/* Output: manifesto */}
+                  <div className={`transition-all duration-500 ${p.showManifesto ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-3'}`}>
+                    <span style={{ color: `${color}99` }}>&nbsp;&nbsp;"{pillar.manifesto}"</span>
+                  </div>
+
+                  {/* Checkmark */}
+                  <div className={`transition-all duration-300 ${p.showOk ? 'opacity-100' : 'opacity-0'}`}>
+                    <span className="text-green">{'\u2713'}</span>
+                    <span className="text-text-dim ml-1">done</span>
+                  </div>
+                </div>
+              )
+            })}
+
+            {/* Final cursor */}
+            {showFinal && (
+              <div className="animate-fade-in-up" style={{ animationDuration: '0.4s' }}>
+                <span className="text-green">&gt;</span>
+                <span className="text-green ml-1">philosophy.loaded</span>
+                <span
+                  className="inline-block w-2 h-4 bg-accent/80 align-middle ml-2"
+                  style={{ animation: 'typing-cursor 1s step-end infinite' }}
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -207,28 +572,17 @@ function PillarBlock({ index, keyword, title, description, manifesto, accentColo
   )
 }
 
-/* ─── Tech badge ─────────────────────────────────────────── */
-
-function TechBadge({ label, delay }: { label: string; delay: number }) {
-  const { ref, visible } = useReveal(0.05)
-  return (
-    <span
-      ref={ref}
-      style={{ animationDelay: `${delay}s` }}
-      className={`inline-block font-mono text-xs px-3 py-1.5 rounded-[var(--radius-sm)] border border-border bg-surface-hi/50 text-text-muted transition-all duration-500 hover:border-accent/30 hover:text-accent hover:bg-accent-dim cursor-default ${visible ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}
-    >
-      {label}
-    </span>
-  )
-}
-
 /* ═══════════════════════════════════════════════════════════ */
 /* ─── LANDING ────────────────────────────────────────────── */
 /* ═══════════════════════════════════════════════════════════ */
 
+const ACCENT_CYCLE = ['#3b82f6', '#8b5cf6', '#ec4899'] as const
+
 export function Landing() {
-  const { displayed, done } = useTyping('hackstler', 80, 800)
+  const { displayed, done } = useTyping('hackstler', 55, 300)
   const navVisible = useScrollNav()
+  const { lang, setLang, t } = useLanguage()
+  const flickerRef = useNeonFlicker()
 
   return (
     <div className="relative overflow-hidden">
@@ -244,13 +598,8 @@ export function Landing() {
       {/* HERO                                                  */}
       {/* ══════════════════════════════════════════════════════ */}
       <header className="relative min-h-screen flex flex-col justify-center items-center px-6 text-center overflow-hidden">
-        {/* Grid background */}
         <div className="hero-grid absolute inset-0 pointer-events-none" />
-
-        {/* Scan line */}
         <div className="hero-scan absolute inset-0 pointer-events-none overflow-hidden" />
-
-        {/* Radial vignette */}
         <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,transparent_0%,#09090b_70%)]" />
 
         {/* Floating decorative elements */}
@@ -280,7 +629,7 @@ export function Landing() {
         {/* Gradient bar top */}
         <div className="gradient-bar h-[2px] fixed top-0 left-0 right-0 z-50" />
 
-        {/* Nav — appears on scroll */}
+        {/* Nav */}
         <nav className={`fixed top-[2px] left-0 right-0 z-40 glass border-b border-border transition-all duration-500 ${navVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-full pointer-events-none'}`}>
           <div className="max-w-6xl mx-auto px-6 py-3.5 flex items-center justify-between">
             <a href="#" className="flex items-center gap-3 group">
@@ -288,13 +637,19 @@ export function Landing() {
               <span className="font-mono text-sm font-semibold text-text-bright tracking-tight">HACKSTLER</span>
             </a>
             <div className="flex items-center gap-6">
-              <a href="#philosophy" className="hidden sm:block font-mono text-[11px] text-text-muted hover:text-accent tracking-wider uppercase transition-colors">Philosophy</a>
-              <a href="#work" className="hidden sm:block font-mono text-[11px] text-text-muted hover:text-brand tracking-wider uppercase transition-colors">Work</a>
+              <a href="#solutions" className="hidden sm:block font-mono text-[11px] text-text-muted hover:text-accent tracking-wider uppercase transition-colors">{t.nav.solutions}</a>
+              <a href="#philosophy" className="hidden sm:block font-mono text-[11px] text-text-muted hover:text-brand tracking-wider uppercase transition-colors">{t.nav.philosophy}</a>
+              <button
+                onClick={() => setLang(lang === 'en' ? 'es' : 'en')}
+                className="font-mono text-[11px] text-text-dim hover:text-text-bright tracking-wider uppercase transition-colors cursor-pointer"
+              >
+                {lang === 'en' ? 'ES' : 'EN'}
+              </button>
               <a
-                href="mailto:sergio@hackstler.com"
+                href="mailto:sergio@hackstler.com?subject=Demo%20Request"
                 className="btn-press font-mono text-[11px] font-semibold tracking-wider px-4 py-1.5 rounded-[var(--radius-sm)] border border-accent/30 text-accent hover:bg-accent-dim hover:border-accent/50 hover:shadow-[0_0_20px_rgba(59,130,246,0.15)] transition-all duration-300"
               >
-                CONTACT
+                {t.nav.requestDemo}
               </a>
             </div>
           </div>
@@ -302,7 +657,6 @@ export function Landing() {
 
         {/* Hero content */}
         <div className="max-w-4xl mx-auto relative z-10">
-          {/* Terminal prompt line */}
           <div className="animate-fade-in-up stagger-1 mb-4">
             <span className="inline-flex items-center gap-2 font-mono text-xs sm:text-sm px-4 py-2 rounded-full border border-border bg-surface/40 backdrop-blur-sm text-text-muted">
               <span className="w-2 h-2 rounded-full bg-green shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
@@ -310,7 +664,6 @@ export function Landing() {
             </span>
           </div>
 
-          {/* Main title with glitch — only after typing completes */}
           <h1
             className={`animate-fade-in-up stagger-2 font-mono text-5xl sm:text-7xl md:text-[8rem] font-bold tracking-tighter mb-2 ${done ? 'glitch-text' : ''}`}
             data-text={done ? 'hackstler' : ''}
@@ -322,50 +675,44 @@ export function Landing() {
             />
           </h1>
 
-          {/* Decorative line under title */}
           <div className="animate-fade-in-up stagger-3 flex items-center justify-center gap-3 my-6">
             <div className="h-px w-12 sm:w-20 bg-gradient-to-r from-transparent to-accent/40" />
             <span className="font-mono text-[10px] text-accent/60 tracking-[0.3em] uppercase">hack &middot; build &middot; ship</span>
             <div className="h-px w-12 sm:w-20 bg-gradient-to-l from-transparent to-brand/40" />
           </div>
 
-          {/* Tagline */}
-          <p className="animate-fade-in-up stagger-4 text-lg sm:text-xl md:text-2xl text-text-muted max-w-2xl mx-auto leading-relaxed">
-            We hack the rules. We hustle the craft.
+          <p className="animate-fade-in-up stagger-4 text-lg sm:text-xl md:text-2xl max-w-2xl mx-auto leading-relaxed">
+            <span className="text-text-bright font-medium">{t.hero.tagline1}</span>{' '}
+            <span className="gradient-text-brand font-semibold">{t.hero.tagline2}</span>
           </p>
-          <p className="animate-fade-in-up stagger-5 text-lg sm:text-xl md:text-2xl max-w-2xl mx-auto mt-2 leading-relaxed">
-            <span className="text-text-bright font-medium">Building next-generation software</span>{' '}
-            <span className="gradient-text-brand font-semibold">powered by AI.</span>
+          <p className="animate-fade-in-up stagger-5 text-sm sm:text-base text-text-muted max-w-xl mx-auto mt-4 leading-relaxed">
+            {t.hero.description}
           </p>
 
-          {/* Sub-tagline */}
           <p className="animate-fade-in-up stagger-6 font-mono text-xs text-text-dim mt-5 tracking-wide">
-            {'>'} disruptive by design &mdash; engineered to break boundaries
+            {t.hero.subTagline}
           </p>
 
-          {/* CTA */}
           <div className="animate-fade-in-up stagger-7 mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <a
-              href="#philosophy"
-              className="btn-press group relative font-mono text-sm font-semibold tracking-wider px-8 py-3.5 rounded-[var(--radius-lg)] bg-accent text-white hover:bg-accent-hover hover:shadow-[0_0_50px_rgba(59,130,246,0.5)] transition-all duration-300 overflow-hidden"
-              style={{ animation: 'neon-flicker 6s ease-in-out infinite, neon-glow-flicker 6s ease-in-out infinite' }}
+              ref={flickerRef}
+              href="#solutions"
+              className="btn-press group relative font-mono text-sm font-semibold tracking-wider px-8 py-3.5 rounded-[var(--radius-lg)] bg-accent text-white hover:bg-accent-hover hover:shadow-[0_0_50px_rgba(59,130,246,0.5)] transition-[transform,background-color] duration-300 overflow-hidden shadow-[var(--shadow-glow-accent)]"
             >
-              <span className="relative z-10">EXPLORE <span className="inline-block transition-transform duration-300 group-hover:translate-x-1">&rarr;</span></span>
-              {/* Shimmer — always alive, intensifies on hover */}
+              <span className="relative z-10">{t.hero.ctaPrimary} <span className="inline-block transition-transform duration-300 group-hover:translate-x-1">&rarr;</span></span>
               <div className="absolute inset-0 overflow-hidden rounded-[inherit]">
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.07] to-transparent" style={{ animation: 'btn-shimmer 4s ease-in-out infinite' }} />
               </div>
             </a>
             <a
-              href="mailto:sergio@hackstler.com"
+              href="mailto:sergio@hackstler.com?subject=Demo%20Request"
               className="btn-press font-mono text-sm font-semibold tracking-wider px-8 py-3.5 rounded-[var(--radius-lg)] border border-border text-text-muted hover:text-text-bright hover:border-accent/30 hover:bg-surface-hover hover:shadow-[0_0_24px_rgba(59,130,246,0.08)] transition-all duration-300"
             >
-              GET IN TOUCH
+              {t.hero.ctaSecondary}
             </a>
           </div>
         </div>
 
-        {/* Scroll indicator */}
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-fade-in-up stagger-9">
           <div className="flex flex-col items-center gap-2">
             <span className="font-mono text-[9px] text-text-dim tracking-widest uppercase">scroll</span>
@@ -377,182 +724,139 @@ export function Landing() {
       </header>
 
       {/* ══════════════════════════════════════════════════════ */}
-      {/* PHILOSOPHY                                            */}
+      {/* WHAT WE DO — unified section                          */}
       {/* ══════════════════════════════════════════════════════ */}
-      <section id="philosophy" className="relative py-24 sm:py-32 px-6">
-        {/* Section intro */}
-        <Section className="max-w-4xl mx-auto text-center mb-20 sm:mb-28">
-          <span className="font-mono text-xs text-accent tracking-widest uppercase mb-4 block">
-            // 001 &mdash; Philosophy
-          </span>
-          <h2 className="text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-8">
-            <span className="gradient-text">Not a company.</span>{' '}
-            <span className="text-text-bright">A mindset.</span>
-          </h2>
-          <p className="text-lg text-text max-w-2xl mx-auto leading-relaxed">
-            Born from the fusion of{' '}
-            <span className="text-accent font-semibold">hacker</span> thinking and{' '}
-            <span className="text-brand font-semibold">hustler</span> execution &mdash;
-            the art of finding the smartest path through any problem,
-            then putting in the relentless work to ship it.
-          </p>
-          {/* Decorative separator */}
-          <div className="flex items-center justify-center gap-4 mt-12">
-            <div className="h-px w-16 bg-gradient-to-r from-transparent to-accent/30" />
-            <div className="w-1.5 h-1.5 rounded-full bg-accent/40" />
-            <div className="w-1.5 h-1.5 rounded-full bg-brand/40" />
-            <div className="w-1.5 h-1.5 rounded-full bg-brand-accent/40" />
-            <div className="h-px w-16 bg-gradient-to-l from-transparent to-brand-accent/30" />
-          </div>
-        </Section>
+      <section id="solutions" className="relative py-24 sm:py-32 px-6">
+        <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-[500px] h-[500px] bg-accent/[0.04] rounded-full blur-[200px] pointer-events-none" />
+        <div className="absolute top-1/3 right-1/4 w-[400px] h-[400px] bg-brand/[0.03] rounded-full blur-[180px] pointer-events-none" />
 
-        {/* Pillar 1: HACK */}
-        <div className="max-w-6xl mx-auto mb-24 sm:mb-32">
-          <PillarBlock
-            index="001"
-            keyword="hack_"
-            title="Every system has a crack. We find it."
-            description="We don't accept the default path. Every process has a shortcut, every wall has a door that nobody tried. We reverse-engineer problems, find the hidden leverage points, and exploit them — not to destroy, but to build something fundamentally better."
-            manifesto="Social engineering meets software engineering. The best code isn't written — it's discovered."
-            accentColor="#3b82f6"
-            glowColor="rgba(59,130,246,1)"
-            codeSnippet={[
-              '// mindset.hack()',
-              'const problem = analyze(system)',
-              'const cracks = problem.findVulnerabilities()',
-              'const shortcut = cracks.exploit({',
-              '  goal: "build_better",',
-              '  method: "unconventional"',
-              '})',
-              '',
-              '>>> shortcut.execute()',
-              '✓ System improved. Rules rewritten.',
-            ]}
-          />
-        </div>
-
-        {/* Pillar 2: HUSTLE */}
-        <div className="max-w-6xl mx-auto mb-24 sm:mb-32">
-          <PillarBlock
-            index="002"
-            keyword="hustle_"
-            title="Ideas die in silence. We ship loud."
-            description="Ideas without execution are just daydreams. We grind. We ship. We iterate until the product speaks louder than any pitch deck ever could. Every line of code is a bet placed on ourselves, and we don't make bets we aren't willing to go all-in on."
-            manifesto="The gap between vision and reality is closed with obsession, not planning."
-            accentColor="#8b5cf6"
-            glowColor="rgba(139,92,246,1)"
-            reverse
-            codeSnippet={[
-              '// execution.hustle()',
-              'while (!shipped) {',
-              '  const iteration = build(fast)',
-              '  const feedback = deploy(iteration)',
-              '  learn(feedback)',
-              '  adapt()',
-              '}',
-              '',
-              '>>> product.status',
-              '✓ Live. Iterating. Unstoppable.',
-            ]}
-          />
-        </div>
-
-        {/* Pillar 3: DISRUPT */}
-        <div className="max-w-6xl mx-auto">
-          <PillarBlock
-            index="003"
-            keyword="disrupt_"
-            title="Convention is a vulnerability we exploit."
-            description="We operate at the edge of what's accepted. Cyberpunk isn't just our aesthetic — it's how we think about software. Question every assumption. Automate ruthlessly. Build systems that feel like they come from the future, because they do."
-            manifesto="The future doesn't ask permission. Neither do we."
-            accentColor="#ec4899"
-            glowColor="rgba(236,72,153,1)"
-            codeSnippet={[
-              '// paradigm.disrupt()',
-              'const rules = industry.getConventions()',
-              'const broken = rules.map(rule => {',
-              '  return rule.challenge({',
-              '    with: "first_principles",',
-              '    bias: "none"',
-              '  })',
-              '})',
-              '',
-              '>>> broken.rebuild()',
-              '✓ New paradigm established.',
-            ]}
-          />
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════════════════ */}
-      {/* WHAT WE BUILD                                         */}
-      {/* ══════════════════════════════════════════════════════ */}
-      <Section id="work" className="py-24 sm:py-32 px-6">
-        <div className="max-w-6xl mx-auto">
+        <Section className="max-w-4xl mx-auto">
           <div className="text-center mb-16 sm:mb-20">
-            <span className="font-mono text-xs text-brand tracking-widest uppercase mb-4 block">
-              // 002 &mdash; What We Build
+            <span className="font-mono text-xs text-accent tracking-widest uppercase mb-4 block">
+              {t.whatWeDo.sectionLabel}
             </span>
-            <h2 className="text-3xl sm:text-5xl font-bold gradient-text tracking-tight mb-6">
-              The next generation<br className="hidden sm:block" /> of AI-powered software.
+            <h2 className="text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-4">
+              <span className="text-text-bright">{t.whatWeDo.title}</span>{' '}
+              <span className="gradient-text">{t.whatWeDo.titleAccent}</span>
             </h2>
-            <p className="text-text max-w-2xl mx-auto leading-relaxed">
-              We're pioneering a new paradigm: <span className="text-text-bright font-semibold">UIless SaaS</span>.
-              Full enterprise-grade platforms controlled entirely through conversational channels &mdash;
-              WhatsApp, Telegram, any chat. No dashboards to learn. No buttons to click.
-              Just talk to your business.
+            <p className="text-sm sm:text-base text-text-muted max-w-2xl mx-auto mt-4 leading-relaxed">
+              {t.whatWeDo.description}
             </p>
           </div>
 
-          {/* Architecture showcase */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-16">
-            {/* Left: Terminal window */}
-            <TerminalCard />
+          {/* Unified rows */}
+          <div className="rounded-[var(--radius-xl)] border border-border bg-surface overflow-hidden shadow-[var(--shadow-card)]">
+            {t.whatWeDo.rows.map((row, i) => {
+              const color = ACCENT_CYCLE[i]
+              const isLast = i === t.whatWeDo.rows.length - 1
+              return (
+                <div key={i} className={`relative p-6 sm:p-8 ${!isLast ? 'border-b border-border' : ''}`}>
+                  <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: `linear-gradient(180deg, ${color}, ${color}20)` }} />
 
-            {/* Right: Feature list */}
-            <div className="flex flex-col gap-4 justify-center">
-              <FeatureRow
-                number="01"
-                title="Multi-Agent Architecture"
-                description="Coordinator agents that orchestrate specialized sub-agents. Each one a master of its domain &mdash; RAG, quoting, scheduling, analytics."
-                delay={0}
-              />
-              <FeatureRow
-                number="02"
-                title="Conversational Interface"
-                description="Your entire SaaS accessible through WhatsApp or Telegram. Send a message, get a quote. Ask a question, retrieve documents. No UI needed."
-                delay={0.1}
-              />
-              <FeatureRow
-                number="03"
-                title="Enterprise RAG Pipeline"
-                description="Hybrid vector search with pgvector, intelligent chunking, query transformation, and optional reranking. Your data, instantly searchable by AI."
-                delay={0.2}
-              />
-              <FeatureRow
-                number="04"
-                title="Plugin Ecosystem"
-                description="Modular plugin architecture with MCP integrations. Gmail, Calendar, CRM, billing &mdash; each plugin encapsulates an agent, tools, and routes."
-                delay={0.3}
-              />
-            </div>
+                  <div className="flex flex-col sm:flex-row sm:items-start gap-4 sm:gap-6">
+                    <div className="flex items-center gap-3 sm:min-w-[120px] shrink-0">
+                      <span className="font-mono text-2xl sm:text-3xl font-bold" style={{ color }}>{String(i + 1).padStart(2, '0')}</span>
+                      <span className="font-mono text-[10px] tracking-widest uppercase" style={{ color: `${color}99` }}>{row.tag}</span>
+                    </div>
+
+                    <div className="space-y-2 flex-1">
+                      <h4 className="text-sm sm:text-base font-semibold text-text-bright leading-tight">{row.title}</h4>
+                      <p className="text-xs text-text-muted leading-relaxed">{row.description}</p>
+                    </div>
+
+                    <div className="shrink-0 self-start">
+                      <span className="font-mono text-[11px] px-2.5 py-1 rounded-[var(--radius-sm)] border whitespace-nowrap" style={{ color, borderColor: `${color}25`, backgroundColor: `${color}08` }}>
+                        {row.highlight}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </Section>
+      </section>
+
+      <SectionDivider accent="brand-accent" />
+
+      {/* ══════════════════════════════════════════════════════ */}
+      {/* DEMO                                                  */}
+      {/* ══════════════════════════════════════════════════════ */}
+      <section className="relative py-24 sm:py-32 px-6">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-brand-accent/[0.04] rounded-full blur-[200px] pointer-events-none" />
+
+        <Section className="max-w-4xl mx-auto">
+          <div className="text-center mb-12 sm:mb-16">
+            <span className="font-mono text-xs text-brand-accent tracking-widest uppercase mb-4 block">
+              {t.demo.sectionLabel}
+            </span>
+            <h2 className="text-3xl sm:text-5xl font-bold gradient-text-brand tracking-tight mb-6">
+              {t.demo.title}
+            </h2>
           </div>
 
-          {/* Tech stack */}
-          <div className="text-center">
-            <p className="font-mono text-xs text-text-dim tracking-wider uppercase mb-6">Tech we work with</p>
-            <div className="flex flex-wrap justify-center gap-2 max-w-3xl mx-auto">
-              {[
-                'TypeScript', 'React', 'Node.js', 'Hono', 'Mastra.ai',
-                'pgvector', 'RAG', 'MCP', 'Gemini', 'Drizzle ORM',
-                'WhatsApp API', 'Tailwind CSS', 'Vite', 'Vercel', 'Railway',
-              ].map((tech, i) => (
-                <TechBadge key={tech} label={tech} delay={i * 0.04} />
-              ))}
-            </div>
+          <ChatDemo />
+        </Section>
+      </section>
+
+      <SectionDivider accent="accent" />
+
+      {/* ══════════════════════════════════════════════════════ */}
+      {/* PHILOSOPHY                                            */}
+      {/* ══════════════════════════════════════════════════════ */}
+      <section id="philosophy" className="relative py-24 sm:py-32 px-6">
+        <Section className="max-w-4xl mx-auto text-center mb-16 sm:mb-20">
+          <span className="font-mono text-xs text-accent tracking-widest uppercase mb-4 block">
+            {t.philosophy.sectionLabel}
+          </span>
+          <h2 className="text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-8">
+            <span className="gradient-text">{t.philosophy.titleGradient}</span>{' '}
+            <span className="text-text-bright">{t.philosophy.titleBright}</span>
+          </h2>
+          <p className="text-lg text-text max-w-2xl mx-auto leading-relaxed">
+            {t.philosophy.introBefore}
+            <span className="text-accent font-semibold">{t.philosophy.introHacker}</span>
+            {t.philosophy.introBetween}
+            <span className="text-brand font-semibold">{t.philosophy.introHustler}</span>
+            {t.philosophy.introAfter}
+          </p>
+        </Section>
+
+        {/* Terminal boot sequence */}
+        <PhilosophyTerminal />
+      </section>
+
+      <SectionDivider accent="accent" />
+
+      {/* ══════════════════════════════════════════════════════ */}
+      {/* FAQ                                                   */}
+      {/* ══════════════════════════════════════════════════════ */}
+      <section className="relative py-24 sm:py-32 px-6">
+        <div className="absolute top-1/2 right-1/4 -translate-y-1/2 w-[400px] h-[300px] bg-brand/[0.03] rounded-full blur-[160px] pointer-events-none" />
+
+        <Section className="max-w-3xl mx-auto">
+          <div className="text-center mb-12 sm:mb-16">
+            <span className="font-mono text-xs text-brand tracking-widest uppercase mb-4 block">
+              {t.faq.sectionLabel}
+            </span>
+            <h2 className="text-3xl sm:text-5xl font-bold gradient-text tracking-tight">
+              {t.faq.title}
+            </h2>
           </div>
-        </div>
-      </Section>
+
+          <div className="space-y-3">
+            {t.faq.items.map((item, i) => (
+              <FAQItem
+                key={i}
+                question={item.question}
+                answer={item.answer}
+                accentColor={ACCENT_CYCLE[i % 3]}
+                delay={i * 0.08}
+              />
+            ))}
+          </div>
+        </Section>
+      </section>
 
       {/* ══════════════════════════════════════════════════════ */}
       {/* CONTACT / CTA                                         */}
@@ -560,28 +864,25 @@ export function Landing() {
       <Section id="contact" className="py-24 sm:py-32 px-6">
         <div className="max-w-3xl mx-auto text-center">
           <span className="font-mono text-xs text-brand-accent tracking-widest uppercase mb-4 block">
-            // 003 &mdash; Get in Touch
+            {t.cta.sectionLabel}
           </span>
           <h2 className="text-3xl sm:text-5xl font-bold tracking-tight mb-6">
-            <span className="gradient-text">Ready to build</span>{' '}
-            <span className="text-text-bright">something</span>{' '}
-            <span className="gradient-text-brand">disruptive?</span>
+            <span className="gradient-text">{t.cta.title}</span>
           </h2>
           <p className="text-text max-w-xl mx-auto leading-relaxed mb-10">
-            Whether you need an AI-powered SaaS from scratch, a conversational interface for your existing product,
-            or a team that thinks different about software &mdash; we should talk.
+            {t.cta.description}
           </p>
 
           <a
-            href="mailto:sergio@hackstler.com"
+            href="mailto:sergio@hackstler.com?subject=Demo%20Request"
             className="btn-press group inline-flex items-center gap-3 font-mono text-sm font-semibold tracking-wider px-10 py-4 rounded-[var(--radius-lg)] bg-accent text-white hover:bg-accent-hover shadow-[var(--shadow-glow-accent)] hover:shadow-[0_0_50px_rgba(59,130,246,0.4)] transition-all duration-300"
           >
-            <span>sergio@hackstler.com</span>
+            <span>{t.cta.ctaButton}</span>
             <span className="transition-transform duration-300 group-hover:translate-x-1">&rarr;</span>
           </a>
 
           <p className="font-mono text-xs text-text-dim mt-6 tracking-wide">
-            // response time: &lt; 24h &mdash; usually faster
+            {t.cta.ctaSubtext}
           </p>
         </div>
       </Section>
@@ -593,92 +894,20 @@ export function Landing() {
             <Logo className="w-6 h-6" />
             <span className="font-mono text-xs text-text-dim tracking-tight">HACKSTLER</span>
           </div>
-          <p className="font-mono text-xs text-text-dim">
-            &copy; {new Date().getFullYear()} Hackstler. All rights reserved.
-          </p>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setLang(lang === 'en' ? 'es' : 'en')}
+              className="font-mono text-[10px] text-text-dim hover:text-text-muted tracking-wider uppercase transition-colors cursor-pointer"
+            >
+              {lang === 'en' ? 'ES' : 'EN'}
+            </button>
+            <p className="font-mono text-xs text-text-dim">
+              &copy; {new Date().getFullYear()} Hackstler. {t.footer.rights}
+            </p>
+          </div>
         </div>
       </footer>
 
-    </div>
-  )
-}
-
-/* ─── Terminal Card sub-component ────────────────────────── */
-
-function TerminalCard() {
-  const { ref, visible } = useReveal(0.1)
-  const lines = [
-    { prompt: true, text: 'hackstler deploy --agent coordinator' },
-    { prompt: false, text: '> Initializing plugin registry...' },
-    { prompt: false, text: '> [rag] Loaded: searchDocuments, saveNote, searchWeb' },
-    { prompt: false, text: '> [quote] Loaded: calculateBudget, generatePDF' },
-    { prompt: false, text: '> [mcp] Connected: gmail, calendar, crm' },
-    { prompt: false, text: '> Agent "Emilio" online. Listening on WhatsApp.' },
-    { prompt: false, text: '', empty: true },
-    { prompt: false, text: '> Ready. Waiting for messages...', success: true },
-  ]
-
-  return (
-    <div
-      ref={ref}
-      className={`rounded-[var(--radius-xl)] border border-border bg-surface overflow-hidden shadow-[var(--shadow-card)] transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'}`}
-    >
-      {/* Title bar */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-surface-hi/50">
-        <div className="flex gap-1.5">
-          <div className="w-3 h-3 rounded-full bg-red/60" />
-          <div className="w-3 h-3 rounded-full bg-yellow/60" />
-          <div className="w-3 h-3 rounded-full bg-green/60" />
-        </div>
-        <span className="font-mono text-[11px] text-text-dim ml-2">hackstler@edge ~ /deploy</span>
-      </div>
-      {/* Lines */}
-      <div className="p-5 font-mono text-xs sm:text-sm leading-loose">
-        {lines.map((line, i) => (
-          <div
-            key={i}
-            className={`transition-all duration-500 ${visible ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4'}`}
-            style={{ transitionDelay: visible ? `${i * 120}ms` : '0ms' }}
-          >
-            {(line as { empty?: boolean }).empty ? (
-              <br />
-            ) : line.prompt ? (
-              <span>
-                <span className="text-accent">$</span>{' '}
-                <span className="text-text-bright">{line.text}</span>
-              </span>
-            ) : (line as { success?: boolean }).success ? (
-              <span className="text-green">{line.text}</span>
-            ) : (
-              <span className="text-text-muted">{line.text}</span>
-            )}
-          </div>
-        ))}
-        {/* Blinking cursor */}
-        <span
-          className="inline-block w-2 h-4 bg-accent/80 align-middle mt-1"
-          style={{ animation: 'typing-cursor 1s step-end infinite' }}
-        />
-      </div>
-    </div>
-  )
-}
-
-/* ─── Feature Row sub-component ──────────────────────────── */
-
-function FeatureRow({ number, title, description, delay }: { number: string; title: string; description: string; delay: number }) {
-  const { ref, visible } = useReveal(0.1)
-  return (
-    <div
-      ref={ref}
-      style={{ transitionDelay: `${delay}s` }}
-      className={`group flex gap-4 p-5 rounded-[var(--radius-lg)] border border-border/50 bg-surface/30 hover:bg-surface-hover hover:border-border-hi transition-all duration-400 cursor-default ${visible ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-8'}`}
-    >
-      <span className="font-mono text-xs text-accent/50 group-hover:text-accent transition-colors shrink-0 mt-0.5">{number}</span>
-      <div>
-        <h4 className="text-sm font-semibold text-text-bright mb-1.5 group-hover:text-accent transition-colors">{title}</h4>
-        <p className="text-xs text-text-muted leading-relaxed">{description}</p>
-      </div>
     </div>
   )
 }
