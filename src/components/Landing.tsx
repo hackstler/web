@@ -58,9 +58,11 @@ function useNeonFlicker() {
       let i = 0
 
       function step() {
-        if (cancelled || i >= steps) {
-          el.style.opacity = '1'
-          el.style.boxShadow = ''
+        if (cancelled || !el || i >= steps) {
+          if (el) {
+            el.style.opacity = '1'
+            el.style.boxShadow = ''
+          }
           // Next burst in 1.5–4s (random)
           timeout = setTimeout(flickerBurst, 1500 + Math.random() * 2500)
           return
