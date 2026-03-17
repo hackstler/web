@@ -886,26 +886,43 @@ export function Landing() {
           <p className="font-mono text-xs text-text-dim mt-6 tracking-wide">
             {t.cta.ctaSubtext}
           </p>
+          <p className="font-mono text-[10px] text-text-dim/60 mt-4">
+            {t.footer.legalName} &mdash; {t.footer.legalAddressText}
+          </p>
         </div>
       </Section>
 
       {/* ── Footer ───────────────────────────────────────────── */}
       <footer className="border-t border-border py-8 px-6">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5">
-            <Logo className="w-6 h-6" />
-            <span className="font-mono text-xs text-text-dim tracking-tight">HACKSTLER</span>
+        <div className="max-w-6xl mx-auto flex flex-col gap-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2.5">
+              <Logo className="w-6 h-6" />
+              <span className="font-mono text-xs text-text-dim tracking-tight">HACKSTLER</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setLang(lang === 'en' ? 'es' : 'en')}
+                className="font-mono text-[10px] text-text-dim hover:text-text-muted tracking-wider uppercase transition-colors cursor-pointer"
+              >
+                {lang === 'en' ? 'ES' : 'EN'}
+              </button>
+              <a href="#legal" className="font-mono text-[10px] text-text-dim hover:text-text-muted tracking-wider uppercase transition-colors">
+                {t.footer.legalTitle}
+              </a>
+              <p className="font-mono text-xs text-text-dim">
+                &copy; {new Date().getFullYear()} Hackstler. {t.footer.rights}
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => setLang(lang === 'en' ? 'es' : 'en')}
-              className="font-mono text-[10px] text-text-dim hover:text-text-muted tracking-wider uppercase transition-colors cursor-pointer"
-            >
-              {lang === 'en' ? 'ES' : 'EN'}
-            </button>
-            <p className="font-mono text-xs text-text-dim">
-              &copy; {new Date().getFullYear()} Hackstler. {t.footer.rights}
-            </p>
+
+          {/* Legal notice — crawlable HTML text */}
+          <div id="legal" className="border-t border-border/50 pt-5">
+            <p className="font-mono text-[10px] text-text-dim tracking-widest uppercase mb-3">{t.footer.legalTitle}</p>
+            <div className="font-mono text-xs text-text-dim leading-relaxed space-y-1">
+              <p><span className="text-text-muted">{t.footer.legalHolder}:</span> {t.footer.legalName}</p>
+              <p><span className="text-text-muted">{t.footer.legalAddress}:</span> {t.footer.legalAddressText}</p>
+            </div>
           </div>
         </div>
       </footer>
