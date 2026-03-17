@@ -161,7 +161,7 @@ const en = {
     legalHolder: 'Legal holder',
     legalAddress: 'Address',
     legalName: 'Sergio Perez Andrade',
-    legalAddressText: 'Calle Echegaray 13, Planta 2, Puerta A, 33208 Gijón, Asturias, España',
+    legalAddressText: 'Calle Echegaray 13, 33208 Gijón, Asturias, España',
   },
 }
 
@@ -324,7 +324,7 @@ const es: typeof en = {
     legalHolder: 'Titular',
     legalAddress: 'Dirección',
     legalName: 'Sergio Perez Andrade',
-    legalAddressText: 'Calle Echegaray 13, Planta 2, Puerta A, 33208 Gijón, Asturias, España',
+    legalAddressText: 'Calle Echegaray 13, 33208 Gijón, Asturias, España',
   },
 }
 
