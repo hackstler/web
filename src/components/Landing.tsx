@@ -393,6 +393,7 @@ function PhilosophyTerminal() {
   const hasFinished = useRef(false)
   const [started, setStarted] = useState(false)
   const [visibleSteps, setVisibleSteps] = useState(0) // 0..7 (init, then 2 per pillar: cmd+content, then final)
+  const [finished, setFinished] = useState(false)
 
   /* Start once when terminal enters viewport — never restart */
   useEffect(() => {
@@ -417,6 +418,7 @@ function PhilosophyTerminal() {
     const totalSteps = 7 // init, cmd0, content0, cmd1, content1, cmd2, content2
     if (visibleSteps >= totalSteps) {
       hasFinished.current = true
+      setFinished(true)
       return
     }
     const delay = visibleSteps === 0 ? 400 : 500
@@ -447,7 +449,7 @@ function PhilosophyTerminal() {
           {/* Terminal body */}
           <div className="p-6 sm:p-8 font-mono text-xs sm:text-sm leading-relaxed space-y-6">
             {/* Init line */}
-            <div className={`transition-opacity duration-500 ${visibleSteps >= 1 ? 'opacity-100' : 'opacity-0'}`}>
+            <div className={finished ? '' : `transition-opacity duration-500 ${visibleSteps >= 1 ? 'opacity-100' : 'opacity-0'}`}>
               <span className="text-text-dim">{'>'} initializing hackstler.philosophy...</span>
             </div>
 
@@ -456,11 +458,11 @@ function PhilosophyTerminal() {
               const color = ACCENT_CYCLE[i]
               const cmdStep = 2 + i * 2     // steps 2, 4, 6
               const contentStep = 3 + i * 2  // steps 3, 5, 7
-              const showCmd = visibleSteps >= cmdStep
-              const showContent = visibleSteps >= contentStep
+              const showCmd = finished || visibleSteps >= cmdStep
+              const showContent = finished || visibleSteps >= contentStep
 
               return (
-                <div key={i} className={`space-y-1.5 transition-opacity duration-400 ${showCmd ? 'opacity-100' : 'opacity-0'}`}>
+                <div key={i} className={`space-y-1.5 ${finished ? '' : `transition-opacity duration-400 ${showCmd ? 'opacity-100' : 'opacity-0'}`}`}>
                   {/* Command line */}
                   <div className="flex items-center gap-2">
                     <span className="text-text-dim select-none">$</span>
@@ -468,18 +470,18 @@ function PhilosophyTerminal() {
                   </div>
 
                   {/* Output: title */}
-                  <div className={`transition-all duration-500 ${showContent ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-3'}`}>
+                  <div className={finished ? '' : `transition-[opacity,transform] duration-500 ${showContent ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-3'}`}>
                     <span className="text-text-dim select-none">&gt; </span>
                     <span className="text-text-bright">{pillar.title}</span>
                   </div>
 
                   {/* Output: manifesto */}
-                  <div className={`transition-all duration-500 delay-150 ${showContent ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-3'}`}>
+                  <div className={finished ? '' : `transition-[opacity,transform] duration-500 delay-150 ${showContent ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-3'}`}>
                     <span style={{ color: `${color}99` }}>&nbsp;&nbsp;"{pillar.manifesto}"</span>
                   </div>
 
                   {/* Checkmark */}
-                  <div className={`transition-all duration-300 delay-300 ${showContent ? 'opacity-100' : 'opacity-0'}`}>
+                  <div className={finished ? '' : `transition-opacity duration-300 delay-300 ${showContent ? 'opacity-100' : 'opacity-0'}`}>
                     <span className="text-green">{'\u2713'}</span>
                     <span className="text-text-dim ml-1">done</span>
                   </div>
@@ -488,7 +490,7 @@ function PhilosophyTerminal() {
             })}
 
             {/* Final cursor */}
-            <div className={`transition-opacity duration-500 ${visibleSteps >= 7 ? 'opacity-100' : 'opacity-0'}`}>
+            <div className={finished ? '' : `transition-opacity duration-500 ${visibleSteps >= 7 ? 'opacity-100' : 'opacity-0'}`}>
               <span className="text-green">&gt;</span>
               <span className="text-green ml-1">philosophy.loaded</span>
               <span
