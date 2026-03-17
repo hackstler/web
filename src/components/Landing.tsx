@@ -386,108 +386,43 @@ function FAQItem({ question, answer, accentColor, delay }: { question: string; a
 
 const PILLAR_COMMANDS = ['hack_ --find-shortcut', 'hustle_ --ship-it', 'disrupt_ --no-defaults'] as const
 
-type BootPhase =
-  | { kind: 'idle' }
-  | { kind: 'typing'; pillar: number; charIndex: number }
-  | { kind: 'reveal-title'; pillar: number }
-  | { kind: 'reveal-manifesto'; pillar: number }
-  | { kind: 'reveal-ok'; pillar: number }
-  | { kind: 'done' }
-
 function PhilosophyTerminal() {
   const { t } = useLanguage()
   const containerRef = useRef<HTMLDivElement>(null)
-  const [phase, setPhase] = useState<BootPhase>({ kind: 'idle' })
+  const hasStarted = useRef(false)
+  const hasFinished = useRef(false)
+  const [started, setStarted] = useState(false)
+  const [visibleSteps, setVisibleSteps] = useState(0) // 0..7 (init, then 2 per pillar: cmd+content, then final)
 
-  /* Each pillar's rendered state */
-  const [pillars, setPillars] = useState([
-    { cmd: '', showTitle: false, showManifesto: false, showOk: false },
-    { cmd: '', showTitle: false, showManifesto: false, showOk: false },
-    { cmd: '', showTitle: false, showManifesto: false, showOk: false },
-  ])
-  const [showFinal, setShowFinal] = useState(false)
-
-  /* Start when terminal enters viewport */
+  /* Start once when terminal enters viewport — never restart */
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) {
-          setPhase({ kind: 'typing', pillar: 0, charIndex: 0 })
+        if (entry.isIntersecting && !hasStarted.current) {
+          hasStarted.current = true
+          setStarted(true)
         }
       },
-      { threshold: 0.25 }
+      { threshold: 0.2 }
     )
     observer.observe(el)
     return () => observer.disconnect()
   }, [])
 
-  /* Animation engine — single state machine, no nested timeouts */
+  /* Sequential reveal: each step appears after a delay */
   useEffect(() => {
-    if (phase.kind === 'idle' || phase.kind === 'done') return
-
-    if (phase.kind === 'typing') {
-      const { pillar, charIndex } = phase
-      const cmd = PILLAR_COMMANDS[pillar]
-      if (charIndex < cmd.length) {
-        const timer = setTimeout(() => {
-          setPillars(prev => {
-            const next = [...prev]
-            next[pillar] = { ...next[pillar], cmd: cmd.slice(0, charIndex + 1) }
-            return next
-          })
-          setPhase({ kind: 'typing', pillar, charIndex: charIndex + 1 })
-        }, 35)
-        return () => clearTimeout(timer)
-      } else {
-        /* Command done typing → reveal title */
-        const timer = setTimeout(() => setPhase({ kind: 'reveal-title', pillar }), 300)
-        return () => clearTimeout(timer)
-      }
+    if (!started || hasFinished.current) return
+    const totalSteps = 7 // init, cmd0, content0, cmd1, content1, cmd2, content2
+    if (visibleSteps >= totalSteps) {
+      hasFinished.current = true
+      return
     }
-
-    if (phase.kind === 'reveal-title') {
-      setPillars(prev => {
-        const next = [...prev]
-        next[phase.pillar] = { ...next[phase.pillar], showTitle: true }
-        return next
-      })
-      const timer = setTimeout(() => setPhase({ kind: 'reveal-manifesto', pillar: phase.pillar }), 400)
-      return () => clearTimeout(timer)
-    }
-
-    if (phase.kind === 'reveal-manifesto') {
-      setPillars(prev => {
-        const next = [...prev]
-        next[phase.pillar] = { ...next[phase.pillar], showManifesto: true }
-        return next
-      })
-      const timer = setTimeout(() => setPhase({ kind: 'reveal-ok', pillar: phase.pillar }), 300)
-      return () => clearTimeout(timer)
-    }
-
-    if (phase.kind === 'reveal-ok') {
-      setPillars(prev => {
-        const next = [...prev]
-        next[phase.pillar] = { ...next[phase.pillar], showOk: true }
-        return next
-      })
-      const nextPillar = phase.pillar + 1
-      if (nextPillar < 3) {
-        const timer = setTimeout(() => setPhase({ kind: 'typing', pillar: nextPillar, charIndex: 0 }), 500)
-        return () => clearTimeout(timer)
-      } else {
-        const timer = setTimeout(() => {
-          setShowFinal(true)
-          setPhase({ kind: 'done' })
-        }, 600)
-        return () => clearTimeout(timer)
-      }
-    }
-  }, [phase])
-
-  const isActive = phase.kind !== 'idle'
+    const delay = visibleSteps === 0 ? 400 : 500
+    const timer = setTimeout(() => setVisibleSteps(s => s + 1), delay)
+    return () => clearTimeout(timer)
+  }, [started, visibleSteps])
 
   return (
     <div ref={containerRef} className="max-w-3xl mx-auto">
@@ -512,43 +447,39 @@ function PhilosophyTerminal() {
           {/* Terminal body */}
           <div className="p-6 sm:p-8 font-mono text-xs sm:text-sm leading-relaxed space-y-6">
             {/* Init line */}
-            <div className={`transition-opacity duration-500 ${isActive ? 'opacity-100' : 'opacity-0'}`}>
+            <div className={`transition-opacity duration-500 ${visibleSteps >= 1 ? 'opacity-100' : 'opacity-0'}`}>
               <span className="text-text-dim">{'>'} initializing hackstler.philosophy...</span>
             </div>
 
             {/* Pillar blocks */}
-            {pillars.map((p, i) => {
+            {t.philosophy.pillars.map((pillar, i) => {
               const color = ACCENT_CYCLE[i]
-              const pillar = t.philosophy.pillars[i]
-              if (!p.cmd && !(phase.kind === 'typing' && phase.pillar === i)) return null
+              const cmdStep = 2 + i * 2     // steps 2, 4, 6
+              const contentStep = 3 + i * 2  // steps 3, 5, 7
+              const showCmd = visibleSteps >= cmdStep
+              const showContent = visibleSteps >= contentStep
 
               return (
-                <div key={i} className="space-y-1.5">
+                <div key={i} className={`space-y-1.5 transition-opacity duration-400 ${showCmd ? 'opacity-100' : 'opacity-0'}`}>
                   {/* Command line */}
                   <div className="flex items-center gap-2">
                     <span className="text-text-dim select-none">$</span>
-                    <span className="font-bold" style={{ color }}>{p.cmd}</span>
-                    {phase.kind === 'typing' && phase.pillar === i && phase.charIndex < PILLAR_COMMANDS[i].length && (
-                      <span
-                        className="inline-block w-[7px] h-[14px] align-middle"
-                        style={{ backgroundColor: color, animation: 'typing-cursor 0.6s step-end infinite' }}
-                      />
-                    )}
+                    <span className="font-bold" style={{ color }}>{PILLAR_COMMANDS[i]}</span>
                   </div>
 
                   {/* Output: title */}
-                  <div className={`transition-all duration-500 ${p.showTitle ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-3'}`}>
+                  <div className={`transition-all duration-500 ${showContent ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-3'}`}>
                     <span className="text-text-dim select-none">&gt; </span>
                     <span className="text-text-bright">{pillar.title}</span>
                   </div>
 
                   {/* Output: manifesto */}
-                  <div className={`transition-all duration-500 ${p.showManifesto ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-3'}`}>
+                  <div className={`transition-all duration-500 delay-150 ${showContent ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-3'}`}>
                     <span style={{ color: `${color}99` }}>&nbsp;&nbsp;"{pillar.manifesto}"</span>
                   </div>
 
                   {/* Checkmark */}
-                  <div className={`transition-all duration-300 ${p.showOk ? 'opacity-100' : 'opacity-0'}`}>
+                  <div className={`transition-all duration-300 delay-300 ${showContent ? 'opacity-100' : 'opacity-0'}`}>
                     <span className="text-green">{'\u2713'}</span>
                     <span className="text-text-dim ml-1">done</span>
                   </div>
@@ -557,16 +488,14 @@ function PhilosophyTerminal() {
             })}
 
             {/* Final cursor */}
-            {showFinal && (
-              <div className="animate-fade-in-up" style={{ animationDuration: '0.4s' }}>
-                <span className="text-green">&gt;</span>
-                <span className="text-green ml-1">philosophy.loaded</span>
-                <span
-                  className="inline-block w-2 h-4 bg-accent/80 align-middle ml-2"
-                  style={{ animation: 'typing-cursor 1s step-end infinite' }}
-                />
-              </div>
-            )}
+            <div className={`transition-opacity duration-500 ${visibleSteps >= 7 ? 'opacity-100' : 'opacity-0'}`}>
+              <span className="text-green">&gt;</span>
+              <span className="text-green ml-1">philosophy.loaded</span>
+              <span
+                className="inline-block w-2 h-4 bg-accent/80 align-middle ml-2"
+                style={{ animation: 'typing-cursor 1s step-end infinite' }}
+              />
+            </div>
           </div>
         </div>
       </div>
