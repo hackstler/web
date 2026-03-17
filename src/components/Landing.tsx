@@ -520,9 +520,9 @@ export function Landing() {
 
       {/* ── Ambient orbs ─────────────────────────────────────── */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
-        <div className="absolute top-[10%] left-[15%] w-[700px] h-[700px] bg-accent/[0.06] rounded-full blur-[200px]" style={{ animation: 'orb-drift 12s ease-in-out infinite, glow-pulse 6s ease-in-out infinite' }} />
-        <div className="absolute bottom-[10%] right-[10%] w-[600px] h-[600px] bg-brand/[0.05] rounded-full blur-[180px]" style={{ animation: 'orb-drift 15s ease-in-out infinite reverse, glow-pulse 8s ease-in-out infinite 2s' }} />
-        <div className="absolute top-[50%] left-[50%] -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-brand-accent/[0.03] rounded-full blur-[150px]" style={{ animation: 'orb-drift 10s ease-in-out infinite 3s, glow-pulse 7s ease-in-out infinite 4s' }} />
+        <div className="absolute top-[10%] left-[15%] w-[700px] h-[700px] bg-accent/[0.06] rounded-full blur-[200px]" style={{ animation: 'orb-drift 12s ease-in-out infinite' }} />
+        <div className="absolute bottom-[10%] right-[10%] w-[600px] h-[600px] bg-brand/[0.05] rounded-full blur-[180px]" style={{ animation: 'orb-drift 15s ease-in-out infinite reverse' }} />
+        <div className="absolute top-[50%] left-[50%] -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-brand-accent/[0.03] rounded-full blur-[150px]" style={{ animation: 'orb-drift 10s ease-in-out infinite 3s' }} />
       </div>
 
       {/* ══════════════════════════════════════════════════════ */}
